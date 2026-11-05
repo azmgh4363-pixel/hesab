@@ -101,6 +101,7 @@ function viewHome() {
     <div class="row"><span>نقد: ${money(h.cash)}</span><span>بانک: ${money(h.bank)}</span></div></div>
   ${queueBanner()}
   <button class="ghost" data-act="paste">چسباندن پیامک بانک</button>
+  <button class="ghost" data-act="smsfile">خواندن فایل پیامک‌ها</button>
   <div class="actions">
     <button class="a-out" data-act="new" data-k="expense">هزینه</button>
     <button data-act="new" data-k="income">درآمد</button>
@@ -294,9 +295,7 @@ const actions = {
     try {
       const text = await Core.exportBackup();
       const name = `hesab-${Core.todayJ().replaceAll('/', '-')}.hesab`;
-      const file = new File([text], name, { type: 'application/octet-stream' });
-      if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file] }); } catch (e) { if (e.name === 'AbortError') return toast('پشتیبان ذخیره نشد.'); throw e; } }
-      else { const u = URL.createObjectURL(file), l = document.createElement('a'); l.href = u; l.download = name; l.click(); setTimeout(() => URL.revokeObjectURL(u), 5000); }
+      if (!await saveFile(new File([text], name, { type: 'application/octet-stream' }))) return toast('پشتیبان ذخیره نشد.');
       toast('فایل پشتیبان ساخته شد.'); refresh();
     } catch (e) { toast(e.msg || 'ساخت پشتیبان انجام نشد.'); }
   },
@@ -325,6 +324,13 @@ function showAuth(hasUser) {
     catch (x) { $('#err').textContent = x.msg; }
   };
   if (hasUser) $('#p').focus();
+}
+
+async function saveFile(file) {
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); } catch (e) { if (e.name === 'AbortError') return false; throw e; }
+  } else { const u = URL.createObjectURL(file), l = document.createElement('a'); l.href = u; l.download = file.name; l.click(); setTimeout(() => URL.revokeObjectURL(u), 5000); }
+  return true;
 }
 
 function restoreForm() {

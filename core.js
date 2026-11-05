@@ -25,9 +25,9 @@ const Core = (() => {
     else if (d > monthDays(y, m)) { d = 1; m++; if (m > 12) { m = 1; y++; } }
     return fmt(y, m, d);
   }
-  function todayJ() {
+  function todayJ(at = new Date()) {
     const p = {};
-    for (const x of new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())) p[x.type] = x.value;
+    for (const x of new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(at)) p[x.type] = x.value;
     return fmt(+p.year, +p.month, +p.day);
   }
 
@@ -212,6 +212,26 @@ const Core = (() => {
       balance: p.balance, reference: p.reference, matchKey: p.key, status: 'pending', transactionId: null, receivedAt: new Date().toISOString() });
     return { id, duplicate: false };
   }
+  /* فایل Shortcuts: هر پیامک با خط ### شروع می‌شود و بعد از آن می‌تواند زمان رسیدن پیامک بیاید. */
+  function splitSmsFile(text) {
+    const blocks = []; let cur = null;
+    for (const line of String(text).replace(/^\uFEFF/, '').split(/\r?\n/)) {
+      const h = line.match(/^\s*#{3,}\s*(.*)$/);
+      if (h) blocks.push(cur = { at: h[1].trim(), lines: [] });
+      else { if (!cur) blocks.push(cur = { at: '', lines: [] }); cur.lines.push(line); }
+    }
+    return blocks.map(b => ({ at: b.at, text: b.lines.join('\n').trim() })).filter(b => b.text);
+  }
+  function ingestFile(text) {
+    if (String(text).length > 2000000) throw bad('فایل خیلی بزرگ است.');
+    const r = { added: 0, duplicate: 0, skipped: 0 };
+    for (const b of splitSmsFile(text)) {
+      const at = new Date(b.at);
+      try { ingest(b.text, b.at && !isNaN(at) ? todayJ(at) : todayJ()).duplicate ? r.duplicate++ : r.added++; }
+      catch (e) { if (!e.bad) throw e; r.skipped++; }
+    }
+    return r;
+  }
   function matches(e, accountId) {
     const from = addDay(e.date, -1), to = addDay(e.date, 1), dep = e.direction === 'deposit';
     return S.tx.filter(t => !t.deletedAt && t.amount === e.amount && t.date >= from && t.date <= to
@@ -365,6 +385,7 @@ const Core = (() => {
     });
     if (p === '/api/bank-events') return pending();
     if (p === '/api/bank-events/paste') return commit(() => ingest(body.text ?? '', todayJ()));
+    if (p === '/api/bank-events/import') return commit(() => ingestFile(body.text ?? ''));
     if (p.endsWith('/resolve')) return commit(() => resolve(id, body));
     if (p.endsWith('/ignore')) return commit(() => {
       const e = S.events.find(v => v.id === id && v.status === 'pending'); if (!e) throw bad('این تراکنش قبلاً تعیین تکلیف شده است.');

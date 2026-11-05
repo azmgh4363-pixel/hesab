@@ -7,7 +7,8 @@ const PURPOSES = {
 
 async function viewInbox() {
   $('#view').innerHTML = `<h1>تراکنش‌های بانکی</h1><div id="cards"><div class="empty">در حال خواندن…</div></div>
-    <button class="ghost" data-act="paste">چسباندن پیامک بانک</button>`;
+    <button class="ghost" data-act="paste">چسباندن پیامک بانک</button>
+    <button class="ghost" data-act="smsfile">خواندن فایل پیامک‌ها</button>`;
   let rows;
   try { rows = await api('/api/bank-events'); }
   catch (e) {
@@ -83,6 +84,27 @@ function resolveCard() {
 }
 
 Object.assign(actions, {
+  smsfile() {
+    openSheet(`<form id="sf" novalidate><div class="phead"><h1>خواندن فایل پیامک‌ها</h1><button type="button" class="x" data-act="close">بستن</button></div>
+      <p class="hint">پیامک‌های فایل به صندوق تراکنش‌ها می‌آیند و تا تأیید نکنید ثبت نمی‌شوند. پیامک تکراری دوباره نمی‌آید.</p>
+      <label for="sfile">فایل sms.txt</label><input id="sfile" type="file">
+      <div class="err" id="serr" role="alert"></div><button class="primary">خواندن فایل</button>
+      <button type="button" class="ghost" data-act="smsblank">ساخت یا خالی کردن فایل</button></form>`);
+    $('#sf').onsubmit = async ev => {
+      ev.preventDefault();
+      const f = $('#sfile').files[0];
+      if (!f) return $('#serr').textContent = 'فایل را انتخاب کنید.';
+      try {
+        const r = await api('/api/bank-events/import', 'POST', { text: await f.text() });
+        closeSheet(); toast(`${fa(r.added)} پیامک تازه، ${fa(r.duplicate)} تکراری، ${fa(r.skipped)} خوانده‌نشده`);
+        await updateHome(); S.view = 'inbox'; render();
+      } catch (x) { x.auth ? showAuth(true) : $('#serr').textContent = x.msg || 'فایل خوانده نشد.'; }
+    };
+  },
+  async smsblank() {
+    try { if (await saveFile(new File(['###\n'], 'sms.txt', { type: 'text/plain' }))) toast('فایل خالی ساخته شد.'); }
+    catch { toast('فایل ساخته نشد.'); }
+  },
   inbox() { S.view = 'inbox'; render(); window.scrollTo(0, 0); },
   evpur(b) { $('#pur').querySelectorAll('.on').forEach(x => x.classList.remove('on')); b.classList.add('on'); evExtra(b.dataset.k); },
   evmatch(b) {

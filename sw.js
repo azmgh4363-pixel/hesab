@@ -1,5 +1,5 @@
 // همه‌ی فایل‌های برنامه روی گوشی نگه داشته می‌شوند تا بدون اینترنت باز شود.
-const CACHE = 'hesab-v3';
+const CACHE = 'hesab-v4';
 const SHELL = ['./', 'core.js', 'app.js', 'inbox.js', 'app.css', 'manifest.webmanifest', 'icon-180.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(

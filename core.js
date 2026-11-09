@@ -181,7 +181,22 @@ const Core = (() => {
       const delta = S.entries.reduce((s, x) => x.txId === t.id && x.accountId === id ? s + x.amount : s, 0);
       run += delta; return { ...t, delta, balance: run };
     }).reverse();
-    return { account: { ...a, balance: run }, opening: a.openingBalance, rows };
+    return { account: { ...a, balance: run }, opening: a.openingBalance, rows, check: balanceChecks().find(c => c.accountId === id) ?? null };
+  }
+  /* کنترل مانده: مانده‌ی آخرین پیامکِ تعیین‌تکلیف‌شده باید با مانده‌ی برنامه در پایان همان روز یکی باشد. */
+  function balanceChecks() {
+    const out = [];
+    for (const a of S.accounts.filter(x => x.kind === 'bank' && !x.archived)) {
+      const evs = S.events.filter(e => e.accountId === a.id && e.balance != null && e.status !== 'pending')
+        .sort((x, y) => x.date.localeCompare(y.date) || (x.time ?? '').localeCompare(y.time ?? '') || x.id - y.id);
+      if (!evs.length) continue;
+      const last = evs[evs.length - 1];
+      const ids = new Set(S.tx.filter(t => !t.deletedAt && t.date <= last.date).map(t => t.id));
+      const app = a.openingBalance + S.entries.reduce((s, x) => x.accountId === a.id && ids.has(x.txId) ? s + x.amount : s, 0);
+      const waiting = S.events.some(e => e.status === 'pending' && (e.accountId === a.id || e.accountId == null) && e.date <= last.date);
+      out.push({ accountId: a.id, name: a.name, date: last.date, time: last.time ?? null, bank: last.balance, app, diff: last.balance - app, waiting });
+    }
+    return out;
   }
   const accounts = () => S.accounts.filter(a => !a.archived).map(a => ({ ...a, balance: balance(a) })).sort((a, b) => a.kind.localeCompare(b.kind) || a.id - b.id);
   const categories = () => {
@@ -202,7 +217,7 @@ const Core = (() => {
     const live = S.tx.some(t => !t.deletedAt);
     const backupDue = live && (!S.lastBackup || Date.now() - S.lastBackup > 7 * 864e5);
     return { today, cash: total('cash'), bank: total('bank'), income, expense, net: income - expense, backupDue, lastBackup: S.lastBackup,
-      pending: S.events.filter(e => e.status === 'pending').length, accounts: list, categories: categories(), recent: txRows({}, 8) };
+      pending: S.events.filter(e => e.status === 'pending').length, accounts: list, categories: categories(), recent: txRows({}, 8), checks: balanceChecks() };
   }
 
   /* ---------- صندوق پیامک: بدون تأیید کاربر چیزی وارد دفتر نمی‌شود ---------- */
@@ -373,6 +388,22 @@ const Core = (() => {
     S = o.state; key = o.k; salt = o.sl;
   }
   function lock() { S = null; key = null; salt = null; }
+  /* تغییر رمز: همه‌ی اطلاعات با کلید تازه ذخیره می‌شود؛ اگر ذخیره نشود رمز قبلی می‌ماند. */
+  async function changePassword(oldPassword, newPassword) {
+    if (!S) throw { auth: true, msg: 'برنامه قفل است.' };
+    if (!newPassword || newPassword.length < 6) throw bad('رمز تازه باید حداقل ۶ حرف باشد.');
+    if (newPassword === oldPassword) throw bad('رمز تازه با رمز فعلی یکی است.');
+    const run = async () => {
+      try { await open(await storage.get(RECORD), oldPassword); } catch (e) { throw e?.bad ? bad('رمز فعلی اشتباه است.') : e; }
+      const ns = crypto.getRandomValues(new Uint8Array(16)), nk = await derive(newPassword, ns, ITER);
+      const old = [salt, key, S.lastBackup];
+      salt = ns; key = nk; S.lastBackup = null; // پشتیبان‌های قبلی رمز قبلی را دارند
+      try { await save(); } catch { [salt, key, S.lastBackup] = old; throw bad('ذخیره روی گوشی انجام نشد؛ رمز عوض نشد.'); }
+    };
+    const p = chain.then(run, run);
+    chain = p.catch(() => { });
+    return p;
+  }
   async function exportBackup() {
     await commit(() => { S.lastBackup = Date.now(); });
     return JSON.stringify(await seal());
@@ -431,6 +462,6 @@ const Core = (() => {
     throw bad('درخواست نامعتبر است.');
   }
 
-  return { handle, lock, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
+  return { handle, lock, changePassword, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
 })();
 if (typeof module !== 'undefined') module.exports = Core;

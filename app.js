@@ -90,6 +90,8 @@ const queueRows = () => S.queue.map(q => txRow(q.tx, q.error ? 'err' : 'q')).joi
 function queueBanner() {
   const failed = S.queue.filter(q => q.error).length, waiting = S.queue.length - failed;
   let h = S.home.pending ? `<button class="banner bank" data-act="inbox">${fa(S.home.pending)} تراکنش بانکی منتظر تعیین تکلیف است.</button>` : '';
+  for (const c of S.home.checks ?? []) if (c.diff && !c.waiting)
+    h += `<button class="banner warn" data-act="stmt" data-id="${c.accountId}">مانده‌ی ${esc(c.name)} با پیامک بانک نمی‌خواند: اختلاف ${money(Math.abs(c.diff))} تومان. برای دیدن لمس کنید.</button>`;
   if (S.home.backupDue) h += `<button class="banner" data-act="backup">مدتی است پشتیبان نگرفته‌اید. برای گرفتن پشتیبان لمس کنید.</button>`;
   if (waiting) h += `<button class="banner" data-act="sync">${fa(waiting)} ثبت در صف ارسال است. برای ارسال لمس کنید.</button>`;
   if (failed) h += `<button class="banner" data-act="tab" data-v="list">${fa(failed)} ثبت رد شد و باید اصلاح شود.</button>`;
@@ -170,9 +172,22 @@ async function viewStmt() {
   <div class="card hero"><div class="lbl">${esc(r.account.name)}</div>
     <div class="big">${money(r.account.balance)} <span class="unit">تومان</span></div>
     <div class="row"><span>موجودی اولیه: ${money(r.opening)}</span></div></div>
+  ${checkCard(r.check)}
   <button class="ghost" data-act="acc" data-id="${id}">ویرایش حساب</button>
   <h2>گردش حساب</h2>
   ${r.rows.length ? `<div class="list">${r.rows.map(t => txRow(t, null, id)).join('')}</div>` : '<div class="card empty">گردشی ثبت نشده است.</div>'}`;
+}
+
+function checkCard(c) {
+  if (!c) return '';
+  const when = fa(c.date) + (c.time ? ' ساعت ' + fa(c.time) : '');
+  if (c.waiting) return '<div class="card hint">پیامک‌های منتظرِ این حساب را اول در صندوق تراکنش‌ها تعیین تکلیف کنید تا مانده کنترل شود.</div>';
+  if (!c.diff) return `<div class="card hint"><b class="pos">✓</b> با مانده‌ی آخرین پیامک بانک (${when}) یکی است.</div>`;
+  return `<div class="card hint"><b class="neg">مانده با بانک نمی‌خواند</b><br>
+    مانده در پیامک بانک (${when}): ${money(c.bank)} تومان<br>
+    مانده‌ی برنامه در پایان همان روز: ${money(c.app)} تومان<br>
+    اختلاف: ${money(c.diff)} تومان. ${c.diff > 0 ? 'برنامه کمتر از بانک است: شاید واریزی جا افتاده یا برداشتی دو بار ثبت شده.' : 'برنامه بیشتر از بانک است: شاید برداشت یا کارمزدی جا افتاده یا واریزی دو بار ثبت شده.'}
+    اگر از اول اختلاف بوده، موجودی اولیه‌ی حساب را بررسی کنید.</div>`;
 }
 
 function viewMore() {
@@ -184,6 +199,7 @@ function viewMore() {
   <h2>نصب روی آیفون</h2><div class="card hint">در Safari دکمه‌ی Share و بعد Add to Home Screen را بزنید.</div>
   <h2>پشتیبان</h2><div class="card hint">اطلاعات فقط روی همین گوشی است. فایل پشتیبان را در iCloud Drive یا جای امن دیگری نگه دارید. آخرین پشتیبان: ${S.home.lastBackup ? fa(new Date(S.home.lastBackup).toLocaleDateString('fa-IR')) : 'هنوز گرفته نشده'}</div>
   <button class="ghost" data-act="backup">گرفتن پشتیبان</button><button class="ghost" data-act="restore">بازیابی از فایل</button>
+  <h2>امنیت</h2><button class="ghost" data-act="chpass">تغییر رمز</button>
   <button class="ghost danger" data-act="logout">قفل برنامه</button>`;
 }
 
@@ -296,6 +312,21 @@ const actions = {
     if (f.dataset.qid) { S.queue = S.queue.filter(q => q.tx.clientId !== f.dataset.qid); saveQueue(); closeSheet(); return render(); }
     try { await api('/api/transactions/' + f.dataset.id, 'DELETE'); closeSheet(); toast('حذف شد.'); refresh(); }
     catch (e) { e.auth ? showAuth(true) : $('#err').textContent = e.net ? 'حذف فقط با اتصال به سرور انجام می‌شود.' : e.msg; }
+  },
+  chpass() {
+    openSheet(`<form id="cpf" novalidate><div class="phead"><h1>تغییر رمز</h1><button type="button" class="x" data-act="close">بستن</button></div>
+      <p class="hint">پشتیبان‌های قبلی فقط با رمز قبلی باز می‌شوند. بعد از تغییر رمز یک پشتیبان تازه بگیرید. رمز تازه قابل بازیابی نیست.</p>
+      <label for="op">رمز فعلی</label><input id="op" type="password" autocomplete="off">
+      <label for="np">رمز تازه (حداقل ۶ حرف)</label><input id="np" type="password" autocomplete="off">
+      <label for="np2">تکرار رمز تازه</label><input id="np2" type="password" autocomplete="off">
+      <div class="err" id="cerr" role="alert"></div><button class="primary">تغییر رمز</button></form>`);
+    $('#cpf').onsubmit = async e => {
+      e.preventDefault();
+      if ($('#np').value !== $('#np2').value) return $('#cerr').textContent = 'رمز تازه و تکرارش یکی نیستند.';
+      const btn = $('#cpf .primary'); btn.disabled = true;
+      try { await Core.changePassword($('#op').value, $('#np').value); closeSheet(); toast('رمز عوض شد. حالا یک پشتیبان تازه بگیرید.'); refresh(); }
+      catch (x) { if (x.auth) return showAuth(true); $('#cerr').textContent = x.msg || 'رمز عوض نشد.'; btn.disabled = false; }
+    };
   },
   stmt(b) { S.accId = Number(b.dataset.id); S.view = 'stmt'; render(); window.scrollTo(0, 0); },
   acc(b) { accForm(S.home.accounts.find(a => a.id === Number(b.dataset.id))); },

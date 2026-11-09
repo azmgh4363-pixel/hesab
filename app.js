@@ -74,8 +74,46 @@ function render() {
   $('#tabs').hidden = false;
   const tab = { stmt: 'accounts', person: 'accounts', report: 'more' }[S.view] ?? S.view;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === tab));
+  /* حرکت ورود فقط وقتی صفحه عوض می‌شود، نه با هر تازه‌سازی */
+  const entering = S.shown !== S.view; S.shown = S.view;
+  const v = $('#view');
+  if (entering) { v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); clearTimeout(S.enterTimer); S.enterTimer = setTimeout(() => v.classList.remove('enter'), 1400); }
   ({ home: viewHome, list: viewList, accounts: viewAccounts, stmt: viewStmt, person: viewPerson, report: viewReport, more: viewMore, inbox: viewInbox })[S.view]();
+  moveTabInd();
+  if (entering) countUp();
 }
+
+/* نشانگر نوار پایین زیر تب فعال سُر می‌خورد */
+function moveTabInd() {
+  const t = $('#tabs'), on = $('#tabs button.on');
+  if (!on) return t.style.setProperty('--tw', '0px');
+  t.style.setProperty('--tx', (t.clientWidth - on.offsetLeft - on.offsetWidth) + 'px');
+  t.style.setProperty('--tw', on.offsetWidth + 'px');
+}
+addEventListener('resize', () => moveTabInd());
+
+/* عدد مانده از صفر تا مقدار واقعی بالا می‌رود */
+function countUp() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  for (const el of document.querySelectorAll('[data-count]')) {
+    const to = Number(el.dataset.count), node = el.firstChild, t0 = performance.now(), ms = 900;
+    if (!node || node.nodeType !== 3 || !to) continue;
+    const step = now => {
+      const p = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - p, 3);
+      if (!node.isConnected) return;
+      node.textContent = money(Math.round(to * e)) + ' ';
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+}
+const ICON = {
+  expense: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+  income: '<svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>',
+  transfer: '<svg viewBox="0 0 24 24"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  eye: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+};
 
 /* accId: از دید یک حساب، انتقالِ خروجی قرمز و ورودی سبز است. */
 function txRow(t, queued, accId) {
@@ -110,15 +148,15 @@ function viewHome() {
   const h = S.home;
   $('#view').innerHTML = `
   <div class="card hero"><div class="lbl">کل موجودی</div>
-    <div class="big">${money(h.cash + h.bank)} <span class="unit">تومان</span></div>
+    <div class="big" data-count="${h.cash + h.bank}">${money(h.cash + h.bank)} <span class="unit">تومان</span></div>
     <div class="row"><span>نقد: ${money(h.cash)}</span><span>بانک: ${money(h.bank)}</span></div></div>
   ${queueBanner()}
   <button class="ghost" data-act="paste">چسباندن پیامک بانک</button>
   <button class="ghost" data-act="smsfile">خواندن فایل پیامک‌ها</button>
   <div class="actions">
-    <button class="a-out" data-act="new" data-k="expense">هزینه</button>
-    <button data-act="new" data-k="income">درآمد</button>
-    <button data-act="new" data-k="transfer">انتقال</button>
+    <button class="a-out" data-act="new" data-k="expense">${ICON.expense}هزینه</button>
+    <button data-act="new" data-k="income">${ICON.income}درآمد</button>
+    <button data-act="new" data-k="transfer">${ICON.transfer}انتقال</button>
   </div>
   ${h.templates?.length ? `<h2>ثبت سریع</h2><div class="chips">${h.templates.map(t => `<button class="chip" data-act="tpl" data-id="${t.id}">${esc(t.name)}</button>`).join('')}</div>` : ''}
   ${h.due?.length ? `<h2>سررسیدها</h2>${h.due.map(r => `<div class="card due"><div class="row"><b>${esc(r.name)}</b><b class="${r.kind === 'income' ? 'pos' : 'neg'}">${money(r.amount)}</b></div>
@@ -553,12 +591,16 @@ function showAuth(hasUser) {
   closeSheet();
   S.view = 'home';
   $('#tabs').hidden = true;
-  $('#view').innerHTML = `<form class="auth" id="lf" novalidate><h1>${hasUser ? 'باز کردن قفل' : 'شروع'}</h1>
+  S.shown = null;
+  $('#view').innerHTML = `<form class="auth" id="lf" novalidate><div class="lockicon">${ICON.lock}</div>
+    <h1>${hasUser ? 'خوش <b>برگشتید</b>' : 'شروع <b>حساب من</b>'}</h1>
+    <p class="sub">${hasUser ? 'برای باز شدن حساب‌هایتان رمز را بزنید.' : 'اطلاعات فقط روی همین گوشی و رمزگذاری‌شده می‌ماند.'}</p>
     ${hasUser ? '' : '<p class="hint">این رمز اطلاعات را رمزگذاری می‌کند و حداقل ۶ حرف است. اگر فراموش شود، اطلاعات و پشتیبان‌ها باز نمی‌شوند و راه بازیابی ندارد.</p>'}
-    <label for="p">رمز</label><input id="p" type="password" autocomplete="${hasUser ? 'current-password' : 'new-password'}">
-    ${hasUser ? '' : '<label for="p2">تکرار رمز</label><input id="p2" type="password" autocomplete="new-password">'}
+    <label for="p">رمز</label><div class="field">${ICON.lock}<input id="p" type="password" placeholder="••••••" autocomplete="${hasUser ? 'current-password' : 'new-password'}"><button type="button" class="eye" aria-label="نمایش رمز">${ICON.eye}</button></div>
+    ${hasUser ? '' : `<label for="p2">تکرار رمز</label><div class="field">${ICON.lock}<input id="p2" type="password" placeholder="••••••" autocomplete="new-password"></div>`}
     <div class="err" id="err" role="alert"></div><button class="primary">${hasUser ? 'باز کردن' : 'شروع'}</button>
     ${hasUser ? '' : '<button type="button" class="ghost" data-act="restore">بازیابی از فایل پشتیبان</button>'}</form>`;
+  $('#lf .eye').onclick = () => { for (const i of document.querySelectorAll('#lf input')) i.type = i.type === 'password' ? 'text' : 'password'; };
   $('#lf').onsubmit = async e => {
     e.preventDefault();
     if (!hasUser && $('#p').value !== $('#p2').value) return $('#err').textContent = 'دو رمز یکی نیستند.';

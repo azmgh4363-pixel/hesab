@@ -128,7 +128,7 @@ function txRow(t, queued, accId) {
   const sub = (t.kind === 'transfer' ? `${t.accountName ?? nameOf(t.accountId)} ← ${t.toAccountName ?? nameOf(t.toAccountId)}` : (t.accountName ?? nameOf(t.accountId)))
     + (t.personName ? ' · ' + t.personName : '');
   const data = queued ? `data-act="editq" data-id="${esc(t.clientId)}"` : `data-act="edit" data-id="${t.id}"`;
-  const row = `<button class="item" ${data}>${txIcon(t)}<span class="t"><div>${esc(title)}${queued ? `<span class="tag">${queued === 'err' ? 'خطا' : 'در صف ارسال'}</span>` : ''}</div>
+  const row = `<button class="item" ${data}>${txIcon(t)}<span class="t"><div>${esc(title)}${t.hasPhoto ? ' <span class="clip" aria-label="عکس دارد">📎</span>' : ''}${queued ? `<span class="tag">${queued === 'err' ? 'خطا' : 'در صف ارسال'}</span>` : ''}</div>
     <small>${fa(t.date)} · ${esc(sub)}</small></span><span class="amt ${sign}">${out ? '−' : ''}${money(t.amount)}${t.balance !== undefined ? `<small>مانده: ${money(t.balance)}</small>` : ''}</span></button>`;
   return queued || !t.id ? row : `<div class="sw"><div class="swa"><button type="button" data-act="edit" data-id="${t.id}">ویرایش</button><button type="button" class="d" data-act="swdel" data-id="${t.id}">حذف</button></div>${row}</div>`;
 }
@@ -171,7 +171,7 @@ function viewHome() {
     <div class="card"><small>هزینه</small><b class="neg">${money(h.expense)}</b></div>
     <div class="card"><small>خالص</small><b class="${h.net < 0 ? 'neg' : 'pos'}">${money(h.net)}</b></div>
   </div>
-  ${insightCard(h)}
+  ${wrapBanner(h)}${insightCard(h)}${streakCard(h)}${budgetRings(h)}
   ${h.cats?.length ? `<h2>خرج این ماه به تفکیک دسته</h2><div class="card donutcard" data-act="report">${donut(h.cats, 'هزینه')}</div>` : ''}
   <h2>آخرین تراکنش‌ها</h2>
   ${h.recent.length || S.queue.length ? `<div class="list">${queueRows()}${byDay(h.recent, t => txRow(t))}</div>` : `<div class="card empty">هنوز تراکنشی ثبت نشده است.</div>`}`;
@@ -299,6 +299,8 @@ async function viewReport() {
     <div class="card"><small>خالص</small><b class="${r.income - r.expense < 0 ? 'neg' : 'pos'}">${money(r.income - r.expense)}</b></div>
   </div>
   ${r.expenses.some(e => e.amount > 0) ? `<div class="card donutcard">${donut(r.expenses.filter(e => e.amount > 0), 'هزینه')}</div>` : ''}
+  <button class="ghost wrapbtn" data-act="wrap" data-m="${r.month}">🎬 جمع‌بندی این ماه</button>
+  <h2>تقویم خرج</h2><p class="hint">هر روز پررنگ‌تر = خرج بیشتر. روی هر روز بزنید تا تراکنش‌هایش را ببینید.</p>${heatmap(r)}
   <h2>روند ۶ ماه</h2>${trendChart(r.trend)}
   <h2>هزینه به تفکیک دسته</h2>
   <p class="hint">برای تعیین یا برداشتن سقف ماهانه روی هر دسته بزنید.${r.refund ? ` برگشت وجه این ماه (${money(r.refund)}) از جمع هزینه کم شده است.` : ''}</p>
@@ -372,6 +374,7 @@ function viewMore() {
   <h2>دسته‌های هزینه</h2><div class="chips">${cats('expense')}<button class="chip" data-act="addcat" data-t="expense">+ دسته‌ی تازه</button></div>
   <h2>دسته‌های درآمد</h2><div class="chips">${cats('income')}<button class="chip" data-act="addcat" data-t="income">+ دسته‌ی تازه</button></div>
   <h2>تراکنش‌های بانکی</h2><button class="ghost" data-act="inbox">صندوق پیامک‌های بانک</button>
+  <h2>رنگ برنامه</h2><div class="chips">${ACCENTS.map(([k, n, c]) => `<button class="chip accent ${(document.documentElement.dataset.accent || 'blue') === k ? 'on' : ''}" data-act="accent" data-k="${k}"><i style="background:${c};color:${c}"></i>${n}</button>`).join('')}</div>
   <h2>نصب روی آیفون</h2><div class="card hint">در Safari دکمه‌ی Share و بعد Add to Home Screen را بزنید.</div>
   <h2>گزارش و برنامه‌ریزی</h2>
   <button class="ghost" data-act="report">گزارش ماهانه و سقف خرج</button>
@@ -403,7 +406,7 @@ function txForm(kind, src, qid, preset) {
     <label for="amt">مبلغ (تومان)</label>
     <input id="amt" class="amount" inputmode="numeric" autocomplete="off" value="${pre?.amount ? fa(group(pre.amount)) : ''}">
     <div id="calc" class="calc" aria-live="polite"></div>
-    <div class="chips ops"><button type="button" class="chip" data-act="zeros">۰۰۰+</button>${['+', '−', '×', '÷', '='].map(o => `<button type="button" class="chip op" data-act="op" data-o="${o}">${o}</button>`).join('')}</div>
+    <div class="chips ops"><button type="button" class="chip" data-act="zeros">۰۰۰+</button>${['+', '−', '×', '÷', '='].map(o => `<button type="button" class="chip op" data-act="op" data-o="${o}">${o}</button>`).join('')}${voiceOk() ? '<button type="button" class="chip op mic" data-act="voice" aria-label="گفتن با صدا (آزمایشی)">🎤</button>' : ''}</div>
     ${kind === 'transfer' ? `<label for="acc">از حساب</label><select id="acc">${opts(accId)}</select>
       <label for="to">به حساب</label><select id="to">${opts(toId)}</select>`
       : `<label>دسته</label><div class="chips" id="cats">${cats.map(c => `<button type="button" class="chip ${c.id === catId ? 'on' : ''}" data-act="cat" data-id="${c.id}">${catEmoji(c.name, kind)} ${esc(c.name)}</button>`).join('')}</div>
@@ -411,15 +414,28 @@ function txForm(kind, src, qid, preset) {
     <label for="date">تاریخ</label>${dateInput('date', fa(date))}
     <div class="chips"><button type="button" class="chip" data-act="setdate" data-d="t">امروز</button><button type="button" class="chip" data-act="setdate" data-d="y">دیروز</button></div>
     ${kind !== 'transfer' && S.home.people?.length ? `<label for="per">شخص (اختیاری)</label><select id="per">${personOpts(pre?.personId ?? null)}</select>` : ''}
+    ${kind === 'expense' && !editing && S.home.people?.length ? `<details id="splitd"><summary>👥 دنگ: تقسیم با دیگران</summary>
+      <p class="hint">مبلغ مساوی تقسیم می‌شود و سهم هر نفر به‌عنوان طلب شما از او در «اشخاص» ثبت می‌شود.</p>
+      <div class="chips" id="splitp">${S.home.people.map(p => `<button type="button" class="chip" data-act="splitp" data-id="${p.id}">${esc(p.name)}</button>`).join('')}</div>
+      <label class="chk"><input type="checkbox" id="splitme" checked> سهم خودم هم هست</label><div id="splitv" class="hint"></div></details>` : ''}
     <label for="desc">شرح</label><input id="desc" autocomplete="off" value="${esc(pre?.description)}">
     <details ${src?.notes || src?.method ? 'open' : ''}><summary>جزئیات بیشتر</summary>
       <label for="method">روش پرداخت</label><select id="method"><option value=""></option>${METHODS.map(m => `<option ${m === pre?.method ? 'selected' : ''}>${m}</option>`).join('')}</select>
       <label for="notes">یادداشت</label><textarea id="notes" rows="2">${esc(src?.notes)}</textarea></details>
+    ${qid ? '' : `<div class="photorow"><button type="button" class="ghost" data-act="photo">📷 عکس رسید</button><input type="file" id="phf" accept="image/*" hidden><div id="phv"></div></div>`}
     <div class="err" id="err" role="alert">${esc(src?.queueError)}</div>
     <button class="primary">${editing ? 'ذخیره' : 'ثبت'}</button>
     ${editing ? `<button type="button" class="ghost danger" data-act="deltx">حذف</button>` : `<button type="button" class="ghost" data-act="savetpl">ذخیره به‌عنوان ثبت آماده</button>`}
   </form>`);
-  $('#amt').oninput = e => { e.target.value = fmtExpr(e.target.value); showCalc(); };
+  $('#amt').oninput = e => { e.target.value = fmtExpr(e.target.value); showCalc(); updateSplit(); };
+  if ($('#splitme')) $('#splitme').onchange = updateSplit;
+  S.fphoto = undefined; // undefined = عوض نشده، null = حذف
+  if ($('#phf')) $('#phf').onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try { S.fphoto = await shrinkPhoto(file); showPhoto(S.fphoto); } catch { toast('عکس خوانده نشد یا خیلی بزرگ است.'); }
+    e.target.value = '';
+  };
+  if (editing && src.id) api(`/api/transactions/${src.id}/photo`).then(r => { if (r.data && S.fphoto === undefined) showPhoto(r.data); }).catch(() => { });
   $('#txf').onsubmit = e => { e.preventDefault(); submitTx(); };
   if (!editing) $('#amt').focus();
 }
@@ -446,16 +462,25 @@ async function submitTx() {
   const tx = { ...rt, recurringId: Number(f.dataset.rid) || null };
   store.set('lastAcc', rt.accountId);
   if (f.dataset.id) {
-    try { await api('/api/transactions/' + f.dataset.id, 'PUT', tx); closeSheet(); done('ذخیره شد'); refresh(); }
+    try { await api('/api/transactions/' + f.dataset.id, 'PUT', tx); await savePhoto(Number(f.dataset.id)); closeSheet(); done('ذخیره شد'); refresh(); }
     catch (e) { e.auth ? showAuth(true) : err.textContent = e.net ? 'ویرایش فقط با اتصال به سرور انجام می‌شود.' : e.msg; }
+    return;
+  }
+  const sp = splitShares();
+  if (sp) {
+    if (!sp.total) return err.textContent = 'مبلغ را وارد کنید.';
+    try { const r = await api('/api/split', 'POST', { ...tx, shares: sp.shares, clientId: uuid() }); await savePhoto(r.ids[0]); closeSheet(); done('ثبت شد · دنگ'); refresh(); }
+    catch (e) { e.auth ? showAuth(true) : err.textContent = e.msg; }
     return;
   }
   const qid = f.dataset.qid;
   if (qid) S.queue = S.queue.filter(q => q.tx.clientId !== qid);
-  S.queue.push({ tx: { ...tx, clientId: qid || uuid() } });
+  const cid = qid || uuid();
+  S.queue.push({ tx: { ...tx, clientId: cid } });
   if (!saveQueue()) { err.textContent = 'حافظه‌ی گوشی پر است؛ ثبت ذخیره نشد.'; S.queue.pop(); return; }
   closeSheet();
   await flush();
+  if (!S.queue.some(q => q.tx.clientId === cid)) await savePhoto(Core.state()?.tx.find(t => t.clientId === cid)?.id);
   const left = S.queue.length;
   left ? toast('در صف ارسال ماند؛ با وصل شدن ارسال می‌شود.') : done('ثبت شد');
   refresh();
@@ -941,6 +966,173 @@ Object.assign(actions, {
     if (!confirm('این هدف حذف شود؟')) return;
     try { await api('/api/goals/' + b.dataset.id, 'DELETE'); closeSheet(); toast('حذف شد.'); refresh(); }
     catch (x) { x.auth ? showAuth(true) : $('#gerr').textContent = x.msg; }
+  },
+});
+
+/* ---------- رنگ برنامه ---------- */
+const ACCENTS = [['blue', 'آبی', '#3fb7ff'], ['purple', 'بنفش', '#a878ff'], ['emerald', 'زمردی', '#2ecc96'], ['gold', 'طلایی', '#f5be46'], ['pink', 'صورتی', '#ff69aa']];
+document.documentElement.dataset.accent = store.get('accent', 'blue');
+
+/* ---------- روزهای بدون خرج و حلقه‌های سقف ---------- */
+function streakCard(h) {
+  const n = h.noSpend; if (!n || !n.best) return '';
+  return `<div class="card streak">${n.current ? `<span class="fire" aria-hidden="true">🔥</span><div><b>${fa(n.current)} روز</b> پشت سر هم بدون هزینه`
+    : `<span class="fire" aria-hidden="true">🌱</span><div>امروز هزینه داشته‌اید؛ از فردا دوباره بشمارید`}<small>رکورد شما: ${fa(n.best)} روز${n.current && n.current >= n.best ? ' · رکورد تازه! 🎉' : ''}</small></div></div>`;
+}
+function budgetRings(h) {
+  if (!h.budgetAll?.length) return '';
+  return `<h2>سقف‌های این ماه</h2><div class="rings">${h.budgetAll.map(b => { const p = b.spent / b.budget;
+    return `<div class="rg ${p > 1 ? 'over' : p >= 0.8 ? 'near' : ''}" data-act="report">${ring(p, 62)}<small>${catEmoji(b.name, 'expense')} ${esc(b.name)}</small>${p > 1 ? `<small class="neg">${fa(Math.round(p * 100))}٪</small>` : ''}</div>`; }).join('')}</div>`;
+}
+const monthName = ym => `${MONTHS[Number(ym.slice(5)) - 1]} ${fa(ym.slice(0, 4))}`;
+function wrapBanner(h) {
+  const day = Number(h.today.slice(8)), prev = prevMonth(h.today.slice(0, 7)), t = h.trend?.[h.trend.length - 2];
+  if (day > 7 || store.get('wrapSeen', '') === prev || !t || !t.expense) return '';
+  return `<button class="banner wrapb" data-act="wrap" data-m="${prev}">🎬 جمع‌بندی ${monthName(prev)} آماده است. ببینید!</button>`;
+}
+
+/* ---------- تقویم خرج ---------- */
+function heatmap(r) {
+  const [y, m] = r.month.split('/').map(Number), first = satIdx(y, m, 1), vals = Object.values(r.days ?? {}), max = Math.max(1, ...vals), now = today();
+  let cells = '';
+  for (let i = 0; i < first; i++) cells += '<span></span>';
+  for (let d = 1; d <= mDays(y, m); d++) {
+    const s = `${y}/${p2(m)}/${p2(d)}`, v = r.days?.[s] ?? 0;
+    cells += `<button type="button" class="hd ${v ? 'has' : ''} ${s === now ? 'now' : ''}" style="--a:${v ? (0.18 + 0.82 * v / max).toFixed(2) : 0}" data-act="heatday" data-d="${s}" aria-label="${fa(d)} ${MONTHS[m - 1]}: ${v ? money(v) + ' تومان' : 'بدون خرج'}">${fa(d)}</button>`;
+  }
+  return `<div class="card heat"><div class="calgrid wk">${['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map(w => `<span>${w}</span>`).join('')}</div><div class="calgrid">${cells}</div>
+    <div class="hl"><span>کم</span><i style="--a:.2"></i><i style="--a:.5"></i><i style="--a:.8"></i><i style="--a:1"></i><span>زیاد</span></div></div>`;
+}
+
+/* ---------- جمع‌بندی ماه (استوری) ---------- */
+async function showWrap(ym) {
+  let r;
+  try { r = await api('/api/report?month=' + encodeURIComponent(ym)); } catch (e) { return e.auth ? showAuth(true) : toast(e.msg || 'باز نشد.'); }
+  if (!r.count) return toast('برای این ماه هزینه‌ای ثبت نشده است.');
+  const wd = Array(7).fill(0);
+  for (const [d, v] of Object.entries(r.days)) { const [y, m, dd] = d.split('/').map(Number); wd[satIdx(y, m, dd)] += v; }
+  const topW = wd.indexOf(Math.max(...wd)), top = r.expenses[0], share = top && r.expense > 0 ? Math.round(top.amount * 100 / r.expense) : 0;
+  const pct = r.prevExpense ? Math.round((r.expense - r.prevExpense) * 100 / r.prevExpense) : null, net = r.income - r.expense;
+  const slides = [
+    ['🎬', `جمع‌بندی ${monthName(r.month)}`, 'بیایید ببینیم این ماه چه گذشت…'],
+    ['🧾', `${fa(r.count)} بار خرج کردید`, `در کل <b class="amtx">${money(r.expense)}</b> تومان`],
+    top && ['🏆', `بیشترین خرج: ${catEmoji(top.name, 'expense')} ${esc(top.name)}`, `<b class="amtx">${money(top.amount)}</b> تومان · ${fa(share)}٪ کل خرج`],
+    ['📅', `پرخرج‌ترین روز هفته: ${WDAYS[topW]}‌ها`, `<b class="amtx">${money(wd[topW])}</b> تومان در ${WDAYS[topW]}‌های این ماه`],
+    r.biggest && ['💸', 'بزرگ‌ترین خرج یک‌جا', `${esc(r.biggest.description)}<br><b class="amtx">${money(r.biggest.amount)}</b> تومان · ${fa(r.biggest.date)}`],
+    pct != null && (pct < 0 ? ['🎉', `${fa(-pct)}٪ کمتر از ماه قبل!`, 'آفرین، خرجتان کمتر شده.'] : pct > 0 ? ['📈', `${fa(pct)}٪ بیشتر از ماه قبل`, 'ماه بعد را با سقف خرج کنترل کنید.'] : ['⚖️', 'درست مثل ماه قبل', 'خرجتان ثابت مانده.']),
+    [net >= 0 ? '💚' : '🧡', net >= 0 ? 'ماه را با پس‌انداز تمام کردید' : 'خرج از درآمد بیشتر شد', `خالص ماه: <b class="amtx ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '−'}${money(Math.abs(net))}</b> تومان`],
+  ].filter(Boolean);
+  let box = $('#story');
+  if (!box) { box = document.createElement('div'); box.id = 'story'; document.body.append(box); }
+  let i = 0, timer;
+  const draw = () => {
+    clearTimeout(timer);
+    const [ic, title, sub] = slides[i];
+    box.innerHTML = `<div class="sbars">${slides.map((_, k) => `<i class="${k < i ? 'full' : k === i ? 'run' : ''}"></i>`).join('')}</div>
+      <button type="button" class="sx" aria-label="بستن">×</button>
+      <div class="sl s${i % 5}"><div class="sic">${ic}</div><h1>${title}</h1><p>${sub}</p></div>
+      <div class="shint">${i < slides.length - 1 ? 'برای بعدی لمس کنید' : 'برای بستن لمس کنید'}</div>`;
+    box.querySelector('.sx').onclick = e => { e.stopPropagation(); close(); };
+    timer = setTimeout(next, 4500);
+  };
+  const close = () => { clearTimeout(timer); box.hidden = true; box.innerHTML = ''; box.onclick = null; };
+  const next = () => { if (i < slides.length - 1) { i++; draw(); } else close(); };
+  box.onclick = e => { if (e.clientX > innerWidth * 0.72 && i > 0) { i--; draw(); } else next(); };
+  box.hidden = false; draw();
+}
+
+/* ---------- دنگ ---------- */
+function splitShares() {
+  const sel = [...document.querySelectorAll('#splitp .on')].map(b => Number(b.dataset.id));
+  if (!sel.length) return null;
+  const total = calcExpr($('#amt').value); if (!(total > 0)) return { shares: [], total: 0 };
+  const me = $('#splitme')?.checked, n = sel.length + (me ? 1 : 0), each = Math.floor(total / n);
+  const shares = sel.map(personId => ({ personId, amount: each }));
+  if (!me) shares[shares.length - 1].amount += total - each * sel.length; // باقی‌مانده‌ی تقسیم به آخرین نفر
+  return { shares, total, own: me ? total - each * sel.length : 0 };
+}
+function updateSplit() {
+  const el = $('#splitv'); if (!el) return;
+  const sp = splitShares();
+  el.innerHTML = !sp ? '' : !sp.total ? 'اول مبلغ را وارد کنید.'
+    : `هر نفر <b>${money(sp.shares[0].amount)}</b> تومان${sp.own ? ` · سهم شما <b>${money(sp.own)}</b>` : ''} · طلب شما: <b>${money(sp.total - sp.own)}</b> تومان`;
+}
+
+/* ---------- عکس رسید ---------- */
+async function shrinkPhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const k = Math.min(1, 1100 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    for (const q of [0.7, 0.55, 0.42, 0.3]) { const d = c.toDataURL('image/jpeg', q); if (d.length < 560000) return d; }
+    throw new Error('big');
+  } finally { URL.revokeObjectURL(url); }
+}
+function showPhoto(data) {
+  const v = $('#phv'); if (!v) return;
+  v.innerHTML = data ? `<img src="${data}" alt="عکس رسید" class="thumb"><button type="button" class="chip" data-act="phdel">حذف عکس</button>` : '';
+  const im = v.querySelector('img'); if (im) im.onclick = () => im.classList.toggle('big');
+}
+async function savePhoto(id) {
+  if (!id || S.fphoto === undefined) return;
+  try { await api(`/api/transactions/${id}/photo`, 'PUT', { data: S.fphoto }); }
+  catch (e) { toast('عکس ذخیره نشد: ' + (e.msg || '')); }
+}
+
+/* ---------- ثبت با صدا (آزمایشی) ---------- */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceOk = () => !!SpeechRec;
+const NUMW = { 'یک': 1, 'یه': 1, 'دو': 2, 'سه': 3, 'چهار': 4, 'پنج': 5, 'شش': 6, 'شیش': 6, 'هفت': 7, 'هشت': 8, 'نه': 9, 'ده': 10, 'یازده': 11, 'دوازده': 12,
+  'سیزده': 13, 'چهارده': 14, 'پانزده': 15, 'پونزده': 15, 'شانزده': 16, 'شونزده': 16, 'هفده': 17, 'هیفده': 17, 'هجده': 18, 'هیجده': 18, 'نوزده': 19,
+  'بیست': 20, 'سی': 30, 'چهل': 40, 'پنجاه': 50, 'شصت': 60, 'هفتاد': 70, 'هشتاد': 80, 'نود': 90, 'صد': 100, 'یکصد': 100, 'دویست': 200, 'سیصد': 300,
+  'چهارصد': 400, 'پانصد': 500, 'پونصد': 500, 'ششصد': 600, 'شیشصد': 600, 'هفتصد': 700, 'هشتصد': 800, 'نهصد': 900 };
+const SCALEW = { 'هزار': 1e3, 'میلیون': 1e6, 'ملیون': 1e6, 'میلیارد': 1e9 };
+const UNITW = ['تومان', 'تومن', 'ریال'];
+/* «نهار دویست و پنجاه هزار تومان» ← مبلغ ۲۵۰٬۰۰۰ و شرح «نهار» */
+function parseSpoken(text) {
+  const toks = en(text).replace(/[،,٬]/g, '').split(/\s+/).filter(Boolean);
+  let total = 0, cur = 0, started = false, done = false, rial = false; const rest = [];
+  for (let i = 0; i < toks.length; i++) {
+    const w = toks[i], num = /^\d+(\.\d+)?$/.test(w) ? Number(w) : null;
+    if (!done && (num != null || NUMW[w] != null)) { cur += num ?? NUMW[w]; started = true; continue; }
+    if (!done && started && w === 'و') continue;
+    if (!done && started && w === 'نیم') { cur += 0.5; continue; }
+    if (!done && started && SCALEW[w]) { total += (cur || 1) * SCALEW[w]; cur = 0; continue; }
+    if (!done && started && UNITW.includes(w)) { rial = w === 'ریال'; done = true; continue; }
+    if (started && !done) done = true;
+    if (!UNITW.includes(w)) rest.push(w);
+  }
+  let amount = Math.round(total + cur); if (rial) amount = Math.round(amount / 10);
+  return { amount: amount > 0 ? amount : 0, desc: rest.join(' ').trim() };
+}
+function applyVoice(text) {
+  const { amount, desc } = parseSpoken(text);
+  if (amount) { $('#amt').value = fa(group(amount)); showCalc(); updateSplit(); }
+  if (desc && !$('#desc').value.trim()) $('#desc').value = desc;
+  const chips = [...document.querySelectorAll('#cats .chip')];
+  const hit = chips.find(c => text.includes(c.textContent.replace(/^\S+\s/, '').trim()))
+    ?? chips.find(c => CAT_WORDS.some(([re, em]) => re.test(text) && c.textContent.startsWith(em)));
+  if (hit) actions.cat(hit);
+  toast(`شنیدم: «${text}»${amount ? '' : ' — مبلغ را نفهمیدم'}`);
+}
+
+Object.assign(actions, {
+  accent(b) { document.documentElement.dataset.accent = b.dataset.k; store.set('accent', b.dataset.k); render(); },
+  wrap(b) { if (b.classList.contains('wrapb')) store.set('wrapSeen', b.dataset.m); showWrap(b.dataset.m || S.month); if (b.classList.contains('wrapb')) b.remove(); },
+  heatday(b) { S.filter = { from: b.dataset.d, to: b.dataset.d }; S.view = 'list'; render(); window.scrollTo(0, 0); },
+  splitp(b) { b.classList.toggle('on'); updateSplit(); },
+  photo() { $('#phf').click(); },
+  phdel() { S.fphoto = null; showPhoto(null); },
+  voice(b) {
+    if (!SpeechRec) return toast('مرورگر این گوشی تشخیص گفتار ندارد.');
+    if (S.rec) { S.rec.stop(); return; }
+    const r = new SpeechRec(); r.lang = 'fa-IR'; r.interimResults = false; r.maxAlternatives = 1;
+    r.onresult = e => applyVoice(e.results[0][0].transcript);
+    r.onerror = e => toast(e.error === 'not-allowed' ? 'اجازه‌ی میکروفون داده نشده است.' : e.error === 'no-speech' ? 'صدایی شنیده نشد.' : 'تشخیص گفتار کار نکرد: ' + e.error);
+    r.onend = () => { S.rec = null; b.classList.remove('rec'); };
+    try { r.start(); S.rec = r; b.classList.add('rec'); } catch { toast('تشخیص گفتار شروع نشد.'); }
   },
 });
 

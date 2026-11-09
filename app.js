@@ -376,7 +376,8 @@ function viewMore() {
   <h2>دسته‌های هزینه</h2><div class="chips">${cats('expense')}<button class="chip" data-act="addcat" data-t="expense">+ دسته‌ی تازه</button></div>
   <h2>دسته‌های درآمد</h2><div class="chips">${cats('income')}<button class="chip" data-act="addcat" data-t="income">+ دسته‌ی تازه</button></div>
   <h2>تراکنش‌های بانکی</h2><button class="ghost" data-act="inbox">صندوق پیامک‌های بانک</button>
-  <h2>رنگ برنامه</h2><div class="chips">${ACCENTS.map(([k, n, c]) => `<button class="chip accent ${(document.documentElement.dataset.accent || 'blue') === k ? 'on' : ''}" data-act="accent" data-k="${k}"><i style="background:${c};color:${c}"></i>${n}</button>`).join('')}</div>
+  <h2>سبک ظاهر</h2><div class="skins">${SKINS.map(([k, n, , g]) => `<button class="skin ${(document.documentElement.dataset.skin || 'classic') === k ? 'on' : ''}" data-act="skin" data-k="${k}"><i style="background:${g}"></i>${n}</button>`).join('')}</div>
+  <h2>رنگ برنامه</h2><p class="hint">رنگ نورها و دکمه‌ها در سبک‌های کلاسیک و شیشه‌ی مایع.</p><div class="chips">${ACCENTS.map(([k, n, c]) => `<button class="chip accent ${(document.documentElement.dataset.accent || 'blue') === k ? 'on' : ''}" data-act="accent" data-k="${k}"><i style="background:${c};color:${c}"></i>${n}</button>`).join('')}</div>
   ${badgesHtml()}
   <h2>نصب روی آیفون</h2><div class="card hint">در Safari دکمه‌ی Share و بعد Add to Home Screen را بزنید.</div>
   <h2>گزارش و برنامه‌ریزی</h2>
@@ -982,6 +983,15 @@ Object.assign(actions, {
 /* ---------- رنگ برنامه ---------- */
 const ACCENTS = [['blue', 'آبی', '#3fb7ff'], ['purple', 'بنفش', '#a878ff'], ['emerald', 'زمردی', '#2ecc96'], ['gold', 'طلایی', '#f5be46'], ['pink', 'صورتی', '#ff69aa']];
 document.documentElement.dataset.accent = store.get('accent', 'blue');
+const SKINS = [['classic', 'کلاسیک', '#05080f', 'linear-gradient(135deg,#0f2c55,#3fb7ff)'], ['liquid', 'شیشه‌ی مایع', '#0b0b1a', 'linear-gradient(135deg,#7b5cff,#ff5fa2,#22c1ee)'],
+  ['neon', 'نئون', '#000000', 'linear-gradient(135deg,#00fff0,#ff00c8)'], ['gold', 'طلایی لوکس', '#070707', 'linear-gradient(135deg,#f8e6ba,#b8913f)'],
+  ['light', 'روشن پاستلی', '#f3f1ff', 'linear-gradient(135deg,#d9d0ff,#ffd6e8,#cdeffd)'], ['aurora', 'رنگین', '#0a0614', 'linear-gradient(135deg,#f72585,#7209b7,#4361ee)']];
+function setSkin(k) {
+  const s = SKINS.find(x => x[0] === k) ?? SKINS[0];
+  document.documentElement.dataset.skin = s[0];
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', s[2]);
+}
+setSkin(store.get('skin', 'classic'));
 
 /* ---------- روزهای بدون خرج و حلقه‌های سقف ---------- */
 function streakCard(h) {
@@ -1161,6 +1171,7 @@ async function savePhoto(id) {
 
 Object.assign(actions, {
   accent(b) { document.documentElement.dataset.accent = b.dataset.k; store.set('accent', b.dataset.k); render(); },
+  skin(b) { setSkin(b.dataset.k); store.set('skin', b.dataset.k); render(); },
   wrap(b) { if (b.classList.contains('wrapb')) store.set('wrapSeen', b.dataset.m); showWrap(b.dataset.m || S.month); if (b.classList.contains('wrapb')) b.remove(); },
   heatday(b) { S.filter = { from: b.dataset.d, to: b.dataset.d }; S.view = 'list'; render(); window.scrollTo(0, 0); },
   splitp(b) { b.classList.toggle('on'); updateSplit(); },

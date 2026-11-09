@@ -68,19 +68,22 @@ async function refresh() {
 function render() {
   if (!S.home) return;
   $('#tabs').hidden = false;
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
-  ({ home: viewHome, list: viewList, accounts: viewAccounts, more: viewMore, inbox: viewInbox })[S.view]();
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === (S.view === 'stmt' ? 'accounts' : S.view)));
+  ({ home: viewHome, list: viewList, accounts: viewAccounts, stmt: viewStmt, more: viewMore, inbox: viewInbox })[S.view]();
 }
 
-function txRow(t, queued) {
-  const sign = t.kind === 'income' ? 'pos' : t.kind === 'expense' ? 'neg' : '';
+/* accId: از دید یک حساب، انتقالِ خروجی قرمز و ورودی سبز است. */
+function txRow(t, queued, accId) {
+  const into = t.kind === 'income' || (accId && t.kind === 'transfer' && t.toAccountId === accId);
+  const out = t.kind === 'expense' || (accId && t.kind === 'transfer' && t.accountId === accId);
+  const sign = into ? 'pos' : out ? 'neg' : '';
   const acc = S.home.accounts, nameOf = id => acc.find(a => a.id === id)?.name ?? '';
   const cat = S.home.categories.find(c => c.id === t.categoryId)?.name;
   const title = t.description || t.categoryName || cat || KIND[t.kind];
   const sub = t.kind === 'transfer' ? `${t.accountName ?? nameOf(t.accountId)} ← ${t.toAccountName ?? nameOf(t.toAccountId)}` : (t.accountName ?? nameOf(t.accountId));
   const data = queued ? `data-act="editq" data-id="${esc(t.clientId)}"` : `data-act="edit" data-id="${t.id}"`;
   return `<button class="item" ${data}><span class="t"><div>${esc(title)}${queued ? `<span class="tag">${queued === 'err' ? 'خطا' : 'در صف ارسال'}</span>` : ''}</div>
-    <small>${fa(t.date)} · ${esc(sub)}</small></span><span class="amt ${sign}">${t.kind === 'expense' ? '−' : ''}${money(t.amount)}</span></button>`;
+    <small>${fa(t.date)} · ${esc(sub)}</small></span><span class="amt ${sign}">${out ? '−' : ''}${money(t.amount)}${t.balance !== undefined ? `<small>مانده: ${money(t.balance)}</small>` : ''}</span></button>`;
 }
 const queueRows = () => S.queue.map(q => txRow(q.tx, q.error ? 'err' : 'q')).join('');
 
@@ -121,11 +124,13 @@ async function viewList() {
   const f = S.filter;
   $('#view').innerHTML = `<h1>تراکنش‌ها</h1>
   <input id="q" type="search" placeholder="جستجو در شرح و دسته" value="${esc(f.q)}" aria-label="جستجو">
+  <select id="fa" aria-label="حساب"><option value="">همه‌ی حساب‌ها</option>${S.home.accounts.map(a => `<option value="${a.id}" ${String(a.id) === String(f.accountId ?? '') ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
   <div class="chips">${[['', 'همه'], ['expense', 'هزینه'], ['income', 'درآمد'], ['transfer', 'انتقال']].map(([k, t]) => `<button class="chip ${(f.kind || '') === k ? 'on' : ''}" data-act="fkind" data-k="${k}">${t}</button>`).join('')}</div>
   <div class="two"><div><label for="ff">از تاریخ</label><input id="ff" class="date" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۰۱" value="${esc(f.from)}"></div>
   <div><label for="ft">تا تاریخ</label><input id="ft" class="date" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۳۰" value="${esc(f.to)}"></div></div>
   <div id="rows" class="list mt"></div>`;
   $('#q').oninput = debounce(e => { f.q = e.target.value; loadRows(); });
+  $('#fa').onchange = e => { f.accountId = e.target.value; loadRows(); };
   for (const [id, k] of [['#ff', 'from'], ['#ft', 'to']]) $(id).onchange = e => { f[k] = normDate(e.target.value); e.target.value = f[k]; loadRows(); };
   loadRows();
 }
@@ -136,7 +141,7 @@ function normDate(v) {
 }
 async function loadRows() {
   const f = S.filter, p = new URLSearchParams();
-  for (const k of ['q', 'kind', 'from', 'to']) if (f[k]) p.set(k, f[k]);
+  for (const k of ['q', 'kind', 'accountId', 'from', 'to']) if (f[k]) p.set(k, f[k]);
   let rows, note = '';
   try { rows = await api('/api/transactions?' + p); S.rows = rows; }
   catch (e) {
@@ -144,13 +149,30 @@ async function loadRows() {
     rows = S.home.recent; note = '<div class="empty">بدون اتصال فقط آخرین تراکنش‌ها دیده می‌شوند.</div>';
   }
   const el = $('#rows'); if (!el) return;
-  el.innerHTML = queueRows() + rows.map(t => txRow(t)).join('') + note || '<div class="empty">موردی پیدا نشد.</div>';
+  el.innerHTML = queueRows() + rows.map(t => txRow(t, null, Number(f.accountId) || null)).join('') + note || '<div class="empty">موردی پیدا نشد.</div>';
 }
 
 function viewAccounts() {
-  const list = S.home.accounts.map(a => `<button class="item" data-act="acc" data-id="${a.id}"><span class="t"><div>${esc(a.name)}</div><small>${a.kind === 'bank' ? esc(a.bankName || 'بانک') : 'نقد'}</small></span><span class="amt ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</span></button>`).join('');
+  const list = S.home.accounts.map(a => `<button class="item" data-act="stmt" data-id="${a.id}"><span class="t"><div>${esc(a.name)}</div><small>${a.kind === 'bank' ? esc(a.bankName || 'بانک') : 'نقد'}</small></span><span class="amt ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</span></button>`).join('');
   $('#view').innerHTML = `<h1>حساب‌ها</h1><div class="list">${list || '<div class="empty">حسابی نیست.</div>'}</div>
   <button class="primary" data-act="acc">افزودن حساب</button>`;
+}
+
+async function viewStmt() {
+  const id = S.accId;
+  $('#view').innerHTML = '<div id="st"><div class="empty">در حال خواندن…</div></div>';
+  let r;
+  try { r = await api(`/api/accounts/${id}/statement`); }
+  catch (e) { if (e.auth) return showAuth(true); $('#st').innerHTML = '<div class="card empty">صورت‌حساب باز نشد.</div>'; return; }
+  S.rows = r.rows;
+  const el = $('#st'); if (!el) return;
+  el.innerHTML = `<button class="ghost" data-act="tab" data-v="accounts">بازگشت به حساب‌ها</button>
+  <div class="card hero"><div class="lbl">${esc(r.account.name)}</div>
+    <div class="big">${money(r.account.balance)} <span class="unit">تومان</span></div>
+    <div class="row"><span>موجودی اولیه: ${money(r.opening)}</span></div></div>
+  <button class="ghost" data-act="acc" data-id="${id}">ویرایش حساب</button>
+  <h2>گردش حساب</h2>
+  ${r.rows.length ? `<div class="list">${r.rows.map(t => txRow(t, null, id)).join('')}</div>` : '<div class="card empty">گردشی ثبت نشده است.</div>'}`;
 }
 
 function viewMore() {
@@ -275,10 +297,11 @@ const actions = {
     try { await api('/api/transactions/' + f.dataset.id, 'DELETE'); closeSheet(); toast('حذف شد.'); refresh(); }
     catch (e) { e.auth ? showAuth(true) : $('#err').textContent = e.net ? 'حذف فقط با اتصال به سرور انجام می‌شود.' : e.msg; }
   },
+  stmt(b) { S.accId = Number(b.dataset.id); S.view = 'stmt'; render(); window.scrollTo(0, 0); },
   acc(b) { accForm(S.home.accounts.find(a => a.id === Number(b.dataset.id))); },
   async archive(b) {
     if (!confirm('این حساب بایگانی شود؟')) return;
-    try { await api('/api/accounts/' + b.dataset.id, 'DELETE'); closeSheet(); refresh(); } catch (e) { $('#err').textContent = e.msg; }
+    try { await api('/api/accounts/' + b.dataset.id, 'DELETE'); closeSheet(); S.view = 'accounts'; refresh(); } catch (e) { $('#err').textContent = e.msg; }
   },
   async addcat(b) {
     const name = prompt('نام دسته‌ی تازه');

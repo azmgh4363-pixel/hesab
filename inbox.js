@@ -27,7 +27,7 @@ function showCard() {
   const dep = e.direction === 'deposit', sug = e.suggestion;
   const banks = S.home.accounts.filter(a => a.kind === 'bank');
   const accOpts = sel => `<option value=""></option>` + S.home.accounts.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
-  const matches = e.matches.map(m => `<button class="ghost" data-act="evmatch" data-id="${m.id}">همان ${KIND[m.kind]} ثبت‌شده است: ${esc(m.description || m.categoryName || '')} (${fa(m.date)})</button>`).join('');
+  const matches = e.matches.map(m => `<button class="ghost" data-act="evmatch" data-id="${m.id}">همان ${KIND[m.kind]} ثبت‌شده است: ${esc(m.description || m.categoryName || '')} (${fa(m.date)})${m.fee ? ` · کارمزد ${money(m.fee)} تومان جدا ثبت می‌شود` : ''}</button>`).join('');
   box.innerHTML = `<form class="card" id="evf" novalidate>
     <p class="hint">یک تراکنش بانکی جدید شناسایی شد. لطفاً ماهیت آن را مشخص کنید.${S.events.length > 1 ? ` (${fa(S.events.length)} مورد مانده)` : ''}</p>
     <div class="evamt ${dep ? 'pos' : 'neg'}">${dep ? '+' : '−'}${money(e.amount)} <span class="unit">تومان</span></div>

@@ -156,11 +156,15 @@ const Core = (() => {
     const row = live(id), before = { ...row };
     row.deletedAt = new Date().toISOString();
     S.entries = S.entries.filter(e => e.txId !== id);
-    for (const e of S.events) if (e.transactionId === id) { e.status = 'pending'; e.transactionId = null; } // پیامکِ وصل دوباره منتظر تعیین تکلیف می‌شود
+    for (const e of S.events) if (e.transactionId === id) { // پیامکِ وصل دوباره منتظر تعیین تکلیف می‌شود؛ کارمزدی که با آن ثبت شده هم پاک می‌شود
+      const fee = e.feeTxId; Object.assign(e, { status: 'pending', transactionId: null, feeTxId: null });
+      if (fee && S.tx.some(t => t.id === fee && !t.deletedAt)) deleteTx(fee);
+    }
     audit('delete', 'transaction', id, before, null);
   }
   const balance = a => a.openingBalance + S.entries.reduce((s, e) => e.accountId === a.id ? s + e.amount : s, 0);
   function txRows({ q, kind, accountId, from, to } = {}, limit = 100) {
+    accountId = Number(accountId) || null;
     const cat = id => S.categories.find(c => c.id === id)?.name ?? null, name = id => account(id)?.name ?? null;
     const text = q?.trim();
     return S.tx.filter(t => !t.deletedAt && (!kind || t.kind === kind) && (!accountId || t.accountId === accountId || t.toAccountId === accountId)
@@ -168,6 +172,16 @@ const Core = (() => {
       && (!text || `${t.description ?? ''} ${t.notes ?? ''} ${cat(t.categoryId) ?? ''}`.includes(text)))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, limit)
       .map(t => ({ ...t, accountName: name(t.accountId), toAccountName: name(t.toAccountId), categoryName: cat(t.categoryId) }));
+  }
+  /* صورت‌حساب یک حساب: قدیمی به جدید جمع می‌شود و جدید به قدیمی نمایش داده می‌شود. */
+  function statement(id) {
+    const a = account(id); if (!a) throw bad('حساب پیدا نشد.');
+    let run = a.openingBalance;
+    const rows = txRows({ accountId: id }, Infinity).reverse().map(t => {
+      const delta = S.entries.reduce((s, x) => x.txId === t.id && x.accountId === id ? s + x.amount : s, 0);
+      run += delta; return { ...t, delta, balance: run };
+    }).reverse();
+    return { account: { ...a, balance: run }, opening: a.openingBalance, rows };
   }
   const accounts = () => S.accounts.filter(a => !a.archived).map(a => ({ ...a, balance: balance(a) })).sort((a, b) => a.kind.localeCompare(b.kind) || a.id - b.id);
   const categories = () => {
@@ -232,14 +246,34 @@ const Core = (() => {
     }
     return r;
   }
+  /* کارمزد انتقال: اختلاف برداشت و واریزِ یک انتقال، حداکثر ۱٪ مبلغ و ۵۰٬۰۰۰ تومان */
+  const feeLimit = amount => Math.min(Math.floor(amount / 100), 50000);
   function matches(e, accountId) {
     const from = addDay(e.date, -1), to = addDay(e.date, 1), dep = e.direction === 'deposit';
-    return S.tx.filter(t => !t.deletedAt && t.amount === e.amount && t.date >= from && t.date <= to
-      && (dep ? (t.kind === 'income' && (!accountId || t.accountId === accountId)) || (t.kind === 'transfer' && (!accountId || t.toAccountId === accountId))
-        : ['expense', 'transfer'].includes(t.kind) && (!accountId || t.accountId === accountId))
-      && !S.events.some(b => b.transactionId === t.id && b.direction === e.direction))
-      .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5)
-      .map(t => ({ ...t, categoryName: S.categories.find(c => c.id === t.categoryId)?.name ?? null }));
+    const mine = id => !accountId || id === accountId;
+    return S.tx.filter(t => !t.deletedAt && t.date >= from && t.date <= to && !S.events.some(b => b.transactionId === t.id && b.direction === e.direction))
+      .map(t => {
+        let fee = null;
+        if (t.amount === e.amount) {
+          if (dep ? (t.kind === 'income' && mine(t.accountId)) || (t.kind === 'transfer' && mine(t.toAccountId))
+            : ['expense', 'transfer'].includes(t.kind) && mine(t.accountId)) fee = 0;
+        } else if (t.kind === 'transfer' && (dep ? mine(t.toAccountId) : mine(t.accountId))) {
+          const diff = dep ? t.amount - e.amount : e.amount - t.amount;
+          if (diff > 0 && diff <= feeLimit(Math.max(t.amount, e.amount))) fee = diff;
+        }
+        return fee === null ? null : { ...t, fee, categoryName: S.categories.find(c => c.id === t.categoryId)?.name ?? null };
+      }).filter(Boolean)
+      .sort((a, b) => a.fee - b.fee || b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5);
+  }
+  function feeCategory() {
+    let c = S.categories.find(x => x.type === 'expense' && x.nature === 'pnl' && x.name === 'کارمزد بانکی');
+    if (!c) S.categories.push(c = { id: nextId(), name: 'کارمزد بانکی', type: 'expense', nature: 'pnl', code: null, archived: 0 });
+    return c.id;
+  }
+  /* انتقال، مبلغ واریزشده را می‌گیرد و اختلاف، هزینه‌ی کارمزد از حساب مبدأ می‌شود. */
+  function chargeFee(m, e) {
+    if (e.direction === 'deposit') updateTx(m.id, { ...live(m.id), amount: e.amount });
+    return insertTx({ kind: 'expense', date: m.date, amount: m.fee, accountId: m.accountId, categoryId: feeCategory(), description: 'کارمزد انتقال' });
   }
   const pending = () => S.events.filter(e => e.status === 'pending').sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id).map(e => ({
     ...e, matches: matches(e, e.accountId),
@@ -260,12 +294,14 @@ const Core = (() => {
     const e = S.events.find(v => v.id === id && v.status === 'pending');
     if (!e) throw bad('این تراکنش قبلاً تعیین تکلیف شده است.');
     if (!x.accountId) throw bad('حساب بانکی را انتخاب کنید.');
-    let txId;
+    let txId, feeTxId = null;
     if (x.purpose === 'match') {
-      if (!matches(e, x.accountId).some(m => m.id === x.transactionId)) throw bad('این تراکنش با پیامک بانک هم‌خوان نیست.');
-      txId = x.transactionId;
+      const m = matches(e, x.accountId).find(v => v.id === x.transactionId);
+      if (!m) throw bad('این تراکنش با پیامک بانک هم‌خوان نیست.');
+      txId = m.id;
+      if (m.fee) feeTxId = chargeFee(m, e);
     } else txId = insertTx(buildTx(x, e, x.accountId));
-    Object.assign(e, { status: 'confirmed', transactionId: txId, accountId: x.accountId });
+    Object.assign(e, { status: 'confirmed', transactionId: txId, feeTxId, accountId: x.accountId });
     if (x.purpose !== 'match' && e.matchKey) {
       let r = S.rules.find(v => v.key === e.matchKey && v.direction === e.direction);
       if (!r) S.rules.push(r = { key: e.matchKey, direction: e.direction, count: 0 });
@@ -368,6 +404,7 @@ const Core = (() => {
       const a = { id: nextId(), name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance, archived: 0 };
       S.accounts.push(a); audit('create', 'account', a.id, null, a); return { id: a.id };
     });
+    if (p.startsWith('/api/accounts/') && p.endsWith('/statement')) return statement(id);
     if (p.startsWith('/api/accounts/')) return commit(() => {
       const a = account(id); if (!a) throw bad('حساب پیدا نشد.');
       if (method === 'PUT') { checkAccount(body); const before = { ...a }; Object.assign(a, { name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance }); audit('update', 'account', id, before, a); }

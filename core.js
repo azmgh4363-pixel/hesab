@@ -108,12 +108,12 @@ const Core = (() => {
       cat('برگشت وجه', 'income', 'refund', 'refund'), cat('سایر واریزها', 'income', 'balance', 'other_in'),
       cat('پرداخت بدهی', 'expense', 'balance', 'debt_out'), cat('پرداخت قرض', 'expense', 'balance', 'loan_out'),
       cat('برداشت شخصی', 'expense', 'balance', 'personal'), cat('سایر برداشت‌ها', 'expense', 'balance', 'other_out')];
-    return { v: 1, seq: id + 1, categories, tx: [], entries: [], events: [], rules: [], audit: [], lastBackup: null, people: [], templates: [], recurring: [],
+    return { v: 1, seq: id + 1, categories, tx: [], entries: [], events: [], rules: [], audit: [], lastBackup: null, people: [], templates: [], recurring: [], goals: [],
       accounts: [{ id: id + 1, name: 'کیف پول', kind: 'cash', bankName: null, accountNumber: null, openingBalance: 0, archived: 0 }] };
   }
   const nextId = () => ++S.seq + 1000;
   /* اطلاعات نسخه‌های قبل بخش‌های تازه را ندارند. */
-  const upgrade = s => { s.people ??= []; s.templates ??= []; s.recurring ??= []; return s; };
+  const upgrade = s => { s.people ??= []; s.templates ??= []; s.recurring ??= []; s.goals ??= []; return s; };
   const audit = (action, entity, id, before, after) => S.audit.push({ at: new Date().toISOString(), action, entity, id, before: before ?? null, after: after ?? null });
   const account = id => S.accounts.find(a => a.id === id);
   const live = id => { const t = S.tx.find(x => x.id === id && !x.deletedAt); if (!t) throw bad('تراکنش پیدا نشد.'); return t; };
@@ -257,10 +257,10 @@ const Core = (() => {
   const dueList = today => { const lim = addDay(today, 3); return S.recurring.filter(r => r.next <= lim).sort((a, b) => a.next.localeCompare(b.next)).map(r => ({ ...r, overdue: r.next < today })); };
 
   /* ---------- گزارش ماهانه و سقف خرج ---------- */
-  function monthTotals(ym) {
+  function monthTotals(ym, maxDay) { // maxDay: فقط تا همان روز ماه
     const by = new Map(); let income = 0, expense = 0, refund = 0;
     for (const t of S.tx) {
-      if (t.deletedAt || t.kind === 'transfer' || t.date.slice(0, 7) !== ym) continue;
+      if (t.deletedAt || t.kind === 'transfer' || t.date.slice(0, 7) !== ym || (maxDay && t.date.slice(8) > maxDay)) continue;
       const c = S.categories.find(x => x.id === t.categoryId);
       if (c?.nature === 'pnl') { by.set(c.id, (by.get(c.id) ?? 0) + t.amount); if (t.kind === 'income') income += t.amount; else expense += t.amount; }
       else if (c?.nature === 'refund') refund += t.amount;
@@ -268,6 +268,18 @@ const Core = (() => {
     return { income, expense: expense - refund, refund, by };
   }
   const prevMonth = ym => { let [y, m] = ym.split('/').map(Number); if (--m < 1) { m = 12; y--; } return `${y}/${String(m).padStart(2, '0')}`; };
+  /* روند ۶ ماهه: قدیمی‌ترین ماه اول */
+  function trend(ym, n = 6) {
+    const out = [];
+    for (let i = 0; i < n; i++) { const t = monthTotals(ym); out.unshift({ month: ym, income: t.income, expense: t.expense }); ym = prevMonth(ym); }
+    return out;
+  }
+  /* هدف پس‌انداز: فقط شمارش پیشرفت است و پولی از حساب‌ها جابه‌جا نمی‌کند. */
+  function checkGoal(b) {
+    if (!b.name?.trim()) throw bad('نام هدف را وارد کنید.');
+    if (!Number.isSafeInteger(b.target) || b.target <= 0 || b.target > MAX) throw bad('مبلغ هدف را درست وارد کنید.');
+  }
+  const goal = id => { const g = S.goals.find(x => x.id === id); if (!g) throw bad('هدف پیدا نشد.'); return g; };
   function report(ym) {
     if (!/^\d{4}\/\d{2}$/.test(ym ?? '')) ym = todayJ().slice(0, 7);
     const cur = monthTotals(ym), prev = monthTotals(prevMonth(ym));
@@ -275,7 +287,7 @@ const Core = (() => {
       .map(c => ({ id: c.id, name: c.name, amount: cur.by.get(c.id) ?? 0, prev: prev.by.get(c.id) ?? 0, budget: c.budget ?? null, archived: c.archived }))
       .filter(r => r.amount || r.prev || (r.budget && !r.archived)).sort((a, b) => b.amount - a.amount || b.prev - a.prev);
     return { month: ym, prevMonth: prevMonth(ym), income: cur.income, expense: cur.expense, refund: cur.refund,
-      prevIncome: prev.income, prevExpense: prev.expense, expenses: rows('expense'), incomes: rows('income') };
+      prevIncome: prev.income, prevExpense: prev.expense, expenses: rows('expense'), incomes: rows('income'), trend: trend(ym) };
   }
   function setBudget(id, budget) {
     const c = S.categories.find(x => x.id === id && x.type === 'expense' && x.nature === 'pnl'); if (!c) throw bad('برای این دسته سقف تعیین نمی‌شود.');
@@ -285,6 +297,8 @@ const Core = (() => {
 
   function home(today) {
     const mt = monthTotals(today.slice(0, 7));
+    const cats = [...mt.by].map(([id, amount]) => ({ id, amount, c: S.categories.find(x => x.id === id) })).filter(x => x.c.type === 'expense' && x.amount > 0)
+      .map(x => ({ id: x.id, name: x.c.name, amount: x.amount })).sort((a, b) => b.amount - a.amount);
     const income = mt.income, expense = mt.expense, list = accounts();
     const budgets = S.categories.filter(c => c.budget && !c.archived).map(c => ({ id: c.id, name: c.name, budget: c.budget, spent: mt.by.get(c.id) ?? 0 }))
       .filter(b => b.spent >= b.budget * 0.8);
@@ -293,7 +307,8 @@ const Core = (() => {
     const backupDue = live && (!S.lastBackup || Date.now() - S.lastBackup > 7 * 864e5);
     return { today, cash: total('cash'), bank: total('bank'), income, expense, net: income - expense, backupDue, lastBackup: S.lastBackup,
       pending: S.events.filter(e => e.status === 'pending').length, accounts: list, categories: categories(), recent: txRows({}, 8), checks: balanceChecks(),
-      people: people(), templates: S.templates, recurring: S.recurring, due: dueList(today), budgets };
+      people: people(), templates: S.templates, recurring: S.recurring, due: dueList(today), budgets,
+      cats, prevToDate: monthTotals(prevMonth(today.slice(0, 7)), today.slice(8)).expense, trend: trend(today.slice(0, 7)), goals: S.goals };
   }
 
   /* ---------- صندوق پیامک: بدون تأیید کاربر چیزی وارد دفتر نمی‌شود ---------- */
@@ -503,7 +518,7 @@ const Core = (() => {
     if (!S) throw { auth: true, msg: 'برنامه قفل است.' };
     const id = Number(p.split('/')[3]);
     /* حذف و ویرایش فقط با روش صریح؛ درخواست خواندن هیچ‌وقت چیزی را پاک نمی‌کند. */
-    if (/^\/api\/(transactions|accounts|people|templates|recurring|categories)\/\d+$/.test(p) && !['PUT', 'DELETE'].includes(method)) throw bad('درخواست نامعتبر است.');
+    if (/^\/api\/(transactions|accounts|people|templates|recurring|categories|goals)\/\d+$/.test(p) && !['PUT', 'DELETE'].includes(method)) throw bad('درخواست نامعتبر است.');
     if (p === '/api/home') return home(todayJ());
     if (p === '/api/transactions' && method === 'GET') return txRows(Object.fromEntries(url.searchParams), url.searchParams.get('limit') === 'all' ? Infinity : 100);
     if (p === '/api/transactions') return commit(() => {
@@ -522,6 +537,23 @@ const Core = (() => {
       const x = person(id); if (!x) throw bad('شخص پیدا نشد.');
       if (method === 'PUT') { checkPerson(body, id); const before = { ...x }; Object.assign(x, { name: body.name.trim(), openingBalance: body.openingBalance ?? 0 }); audit('update', 'person', id, before, x); }
       else { if (personBalance(x) !== 0) throw bad('حساب این شخص تسویه نشده است.'); x.archived = 1; audit('archive', 'person', id); }
+    });
+    if (p === '/api/goals') return commit(() => {
+      checkGoal(body);
+      const g = { id: nextId(), name: body.name.trim(), target: body.target, saved: 0 };
+      S.goals.push(g); audit('create', 'goal', g.id, null, g); return { id: g.id };
+    });
+    if (p.startsWith('/api/goals/') && p.endsWith('/add')) return commit(() => {
+      const g = goal(id), a = body.amount;
+      if (!Number.isSafeInteger(a) || !a || Math.abs(a) > MAX) throw bad('مبلغ را درست وارد کنید.');
+      if (g.saved + a < 0) throw bad('بیشتر از پس‌انداز این هدف برداشت نمی‌شود.');
+      if (g.saved + a > MAX) throw bad('مبلغ خیلی بزرگ است.');
+      g.saved += a; audit('goal', 'goal', id, null, a); return { saved: g.saved, reached: g.saved >= g.target };
+    });
+    if (p.startsWith('/api/goals/')) return commit(() => {
+      const g = goal(id);
+      if (method === 'PUT') { checkGoal(body); const before = { ...g }; Object.assign(g, { name: body.name.trim(), target: body.target }); audit('update', 'goal', id, before, g); }
+      else { S.goals = S.goals.filter(x => x !== g); audit('delete', 'goal', id, g); }
     });
     if (p === '/api/templates') return commit(() => addTemplate(body));
     if (p.startsWith('/api/templates/')) return commit(() => {

@@ -28,6 +28,10 @@ function showCard() {
   const banks = S.home.accounts.filter(a => a.kind === 'bank');
   const accOpts = sel => `<option value=""></option>` + S.home.accounts.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
   const matches = e.matches.map(m => `<button class="ghost" data-act="evmatch" data-id="${m.id}">همان ${KIND[m.kind]} ثبت‌شده است: ${esc(m.description || m.categoryName || '')} (${fa(m.date)})${m.fee ? ` · کارمزد ${money(m.fee)} تومان جدا ثبت می‌شود` : ''}</button>`).join('');
+  /* ثبت آماده‌های هم‌جهت (برداشت = هزینه، واریز = درآمد) با دسته‌ی عادی */
+  const kind = dep ? 'income' : 'expense';
+  const tpls = (S.home.templates ?? []).filter(t => t.kind === kind && S.home.categories.find(c => c.id === t.categoryId)?.nature === 'pnl')
+    .map(t => `<button type="button" class="chip tq" data-act="evtpl" data-id="${t.id}">${catEmoji(S.home.categories.find(c => c.id === t.categoryId)?.name, kind)} ${esc(t.name)}</button>`).join('');
   box.innerHTML = `<form class="card" id="evf" novalidate>
     <p class="hint">یک تراکنش بانکی جدید شناسایی شد. لطفاً ماهیت آن را مشخص کنید.${S.events.length > 1 ? ` (${fa(S.events.length)} مورد مانده)` : ''}</p>
     <div class="evamt ${dep ? 'pos' : 'neg'}">${dep ? '+' : '−'}${money(e.amount)} <span class="unit">تومان</span></div>
@@ -36,6 +40,7 @@ function showCard() {
     <label for="eacc">حساب بانکی</label><select id="eacc">${accOpts(e.accountId)}</select>
     ${matches ? `<h2>شاید قبلاً ثبت شده باشد</h2>${matches}` : ''}
     <h2>${dep ? 'این واریزی بابت چیست؟' : 'این برداشت بابت چیست؟'}</h2>
+    ${tpls ? `<p class="hint">با یک لمس، با مبلغ و تاریخ همین پیامک ثبت می‌شود:</p><div class="chips evtpl">${tpls}</div><p class="hint">یا خودتان انتخاب کنید:</p>` : ''}
     ${sug ? `<p class="hint">پیشنهاد از روی انتخاب‌های قبلی شماست؛ تا تأیید نکنید ثبت نمی‌شود.</p>` : ''}
     <div class="chips" id="pur">${PURPOSES[e.direction].map(([k, t]) => `<button type="button" class="chip ${sug?.purpose === k ? 'on' : ''}" data-act="evpur" data-k="${k}">${t}</button>`).join('')}</div>
     <div id="evx"></div>
@@ -114,8 +119,14 @@ Object.assign(actions, {
     if (!accountId) return $('#err').textContent = 'حساب بانکی را انتخاب کنید.';
     sendResolve({ purpose: 'match', accountId, transactionId: Number(b.dataset.id) });
   },
+  evtpl(b) {
+    const t = (S.home.templates ?? []).find(x => x.id === Number(b.dataset.id)); if (!t) return;
+    const accountId = Number($('#eacc').value) || null;
+    if (!accountId) return $('#err').textContent = 'حساب بانکی را انتخاب کنید.';
+    sendResolve({ purpose: t.kind, accountId, categoryId: t.categoryId, otherAccountId: null, personId: t.personId ?? null, description: t.description || t.name, transactionId: null });
+  },
   async evignore() {
-    if (!confirm('این تراکنش نادیده گرفته شود؟ وارد دفتر نمی‌شود.')) return;
+    if (!confirm('این پیامک نادیده گرفته شود؟ وارد دفتر نمی‌شود.\n\nاگر می‌خواهید ثبتش کنید، رد نکنید؛ از دکمه‌های ثبت آماده یا «تأیید و ثبت» همین کارت استفاده کنید. ثبت دستیِ جداگانه باعث می‌شود کنترل مانده با بانک درست کار نکند.')) return;
     try { await api(`/api/bank-events/${S.events[0].id}/ignore`, 'POST'); S.events.shift(); showCard(); updateHome(); }
     catch (x) { $('#err').textContent = x.msg; }
   },

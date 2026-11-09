@@ -8,6 +8,10 @@ const money = n => (n < 0 ? '−' : '') + fa(group(Math.abs(n)));
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const digits = v => en(v).replace(/\D/g, '');
 const KIND = { income: 'درآمد', expense: 'هزینه', transfer: 'انتقال' };
+const personOpts = sel => '<option value="">—</option>' + (S.home?.people ?? []).map(p => `<option value="${p.id}" ${p.id === sel ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+const catByCode = code => S.home.categories.find(c => c.code === code)?.id;
+/* کارهای حساب اشخاص: [برچسب، نوع، کد دسته] */
+const PERSON_OPS = [['قرض دادم', 'expense', 'loan_out'], ['دریافت طلب', 'income', 'receivable_in'], ['قرض گرفتم', 'income', 'loan_in'], ['پرداخت بدهی', 'expense', 'debt_out']];
 const METHODS = ['نقد', 'کارت', 'انتقال بانکی', 'چک'];
 
 const store = {
@@ -68,8 +72,9 @@ async function refresh() {
 function render() {
   if (!S.home) return;
   $('#tabs').hidden = false;
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === (S.view === 'stmt' ? 'accounts' : S.view)));
-  ({ home: viewHome, list: viewList, accounts: viewAccounts, stmt: viewStmt, more: viewMore, inbox: viewInbox })[S.view]();
+  const tab = { stmt: 'accounts', person: 'accounts', report: 'more' }[S.view] ?? S.view;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === tab));
+  ({ home: viewHome, list: viewList, accounts: viewAccounts, stmt: viewStmt, person: viewPerson, report: viewReport, more: viewMore, inbox: viewInbox })[S.view]();
 }
 
 /* accId: از دید یک حساب، انتقالِ خروجی قرمز و ورودی سبز است. */
@@ -80,7 +85,8 @@ function txRow(t, queued, accId) {
   const acc = S.home.accounts, nameOf = id => acc.find(a => a.id === id)?.name ?? '';
   const cat = S.home.categories.find(c => c.id === t.categoryId)?.name;
   const title = t.description || t.categoryName || cat || KIND[t.kind];
-  const sub = t.kind === 'transfer' ? `${t.accountName ?? nameOf(t.accountId)} ← ${t.toAccountName ?? nameOf(t.toAccountId)}` : (t.accountName ?? nameOf(t.accountId));
+  const sub = (t.kind === 'transfer' ? `${t.accountName ?? nameOf(t.accountId)} ← ${t.toAccountName ?? nameOf(t.toAccountId)}` : (t.accountName ?? nameOf(t.accountId)))
+    + (t.personName ? ' · ' + t.personName : '');
   const data = queued ? `data-act="editq" data-id="${esc(t.clientId)}"` : `data-act="edit" data-id="${t.id}"`;
   return `<button class="item" ${data}><span class="t"><div>${esc(title)}${queued ? `<span class="tag">${queued === 'err' ? 'خطا' : 'در صف ارسال'}</span>` : ''}</div>
     <small>${fa(t.date)} · ${esc(sub)}</small></span><span class="amt ${sign}">${out ? '−' : ''}${money(t.amount)}${t.balance !== undefined ? `<small>مانده: ${money(t.balance)}</small>` : ''}</span></button>`;
@@ -92,6 +98,8 @@ function queueBanner() {
   let h = S.home.pending ? `<button class="banner bank" data-act="inbox">${fa(S.home.pending)} تراکنش بانکی منتظر تعیین تکلیف است.</button>` : '';
   for (const c of S.home.checks ?? []) if (c.diff && !c.waiting)
     h += `<button class="banner warn" data-act="stmt" data-id="${c.accountId}">مانده‌ی ${esc(c.name)} با پیامک بانک نمی‌خواند: اختلاف ${money(Math.abs(c.diff))} تومان. برای دیدن لمس کنید.</button>`;
+  for (const b of S.home.budgets ?? [])
+    h += `<button class="banner" data-act="report">${esc(b.name)}: ${fa(Math.round(b.spent * 100 / b.budget))}٪ سقف این ماه خرج شده (${money(b.spent)} از ${money(b.budget)}).</button>`;
   if (S.home.backupDue) h += `<button class="banner" data-act="backup">مدتی است پشتیبان نگرفته‌اید. برای گرفتن پشتیبان لمس کنید.</button>`;
   if (waiting) h += `<button class="banner" data-act="sync">${fa(waiting)} ثبت در صف ارسال است. برای ارسال لمس کنید.</button>`;
   if (failed) h += `<button class="banner" data-act="tab" data-v="list">${fa(failed)} ثبت رد شد و باید اصلاح شود.</button>`;
@@ -112,6 +120,10 @@ function viewHome() {
     <button data-act="new" data-k="income">درآمد</button>
     <button data-act="new" data-k="transfer">انتقال</button>
   </div>
+  ${h.templates?.length ? `<h2>ثبت سریع</h2><div class="chips">${h.templates.map(t => `<button class="chip" data-act="tpl" data-id="${t.id}">${esc(t.name)}</button>`).join('')}</div>` : ''}
+  ${h.due?.length ? `<h2>سررسیدها</h2>${h.due.map(r => `<div class="card due"><div class="row"><b>${esc(r.name)}</b><b class="${r.kind === 'income' ? 'pos' : 'neg'}">${money(r.amount)}</b></div>
+    <small class="${r.overdue ? 'neg' : ''}">سررسید ${fa(r.next)}${r.overdue ? ' (گذشته)' : ''}${r.left ? ` · ${fa(r.left)} دفعه مانده` : ''}</small>
+    <div class="two"><button class="ghost" data-act="duepay" data-id="${r.id}">ثبت</button><button class="ghost" data-act="dueskip" data-id="${r.id}">این بار نه</button></div></div>`).join('')}` : ''}
   <h2>این ماه</h2>
   <div class="stats">
     <div class="card"><small>درآمد</small><b class="pos">${money(h.income)}</b></div>
@@ -130,7 +142,8 @@ async function viewList() {
   <div class="chips">${[['', 'همه'], ['expense', 'هزینه'], ['income', 'درآمد'], ['transfer', 'انتقال']].map(([k, t]) => `<button class="chip ${(f.kind || '') === k ? 'on' : ''}" data-act="fkind" data-k="${k}">${t}</button>`).join('')}</div>
   <div class="two"><div><label for="ff">از تاریخ</label><input id="ff" class="date" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۰۱" value="${esc(f.from)}"></div>
   <div><label for="ft">تا تاریخ</label><input id="ft" class="date" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۳۰" value="${esc(f.to)}"></div></div>
-  <div id="rows" class="list mt"></div>`;
+  <div id="rows" class="list mt"></div>
+  <button class="ghost" data-act="export">خروجی اکسل (همین فهرست)</button>`;
   $('#q').oninput = debounce(e => { f.q = e.target.value; loadRows(); });
   $('#fa').onchange = e => { f.accountId = e.target.value; loadRows(); };
   for (const [id, k] of [['#ff', 'from'], ['#ft', 'to']]) $(id).onchange = e => { f[k] = normDate(e.target.value); e.target.value = f[k]; loadRows(); };
@@ -156,8 +169,11 @@ async function loadRows() {
 
 function viewAccounts() {
   const list = S.home.accounts.map(a => `<button class="item" data-act="stmt" data-id="${a.id}"><span class="t"><div>${esc(a.name)}</div><small>${a.kind === 'bank' ? esc(a.bankName || 'بانک') : 'نقد'}</small></span><span class="amt ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</span></button>`).join('');
+  const ppl = (S.home.people ?? []).map(p => `<button class="item" data-act="person" data-id="${p.id}"><span class="t"><div>${esc(p.name)}</div><small>${p.balance > 0 ? 'طلب شما' : p.balance < 0 ? 'بدهی شما' : 'تسویه'}</small></span><span class="amt ${p.balance > 0 ? 'pos' : p.balance < 0 ? 'neg' : ''}">${money(Math.abs(p.balance))}</span></button>`).join('');
   $('#view').innerHTML = `<h1>حساب‌ها</h1><div class="list">${list || '<div class="empty">حسابی نیست.</div>'}</div>
-  <button class="primary" data-act="acc">افزودن حساب</button>`;
+  <button class="primary" data-act="acc">افزودن حساب</button>
+  <h2>اشخاص (طلب و بدهی)</h2>${ppl ? `<div class="list">${ppl}</div>` : '<div class="card hint">قرض، طلب و بدهی هر شخص را اینجا جدا ببینید.</div>'}
+  <button class="ghost" data-act="pform">افزودن شخص</button>`;
 }
 
 async function viewStmt() {
@@ -176,6 +192,118 @@ async function viewStmt() {
   <button class="ghost" data-act="acc" data-id="${id}">ویرایش حساب</button>
   <h2>گردش حساب</h2>
   ${r.rows.length ? `<div class="list">${r.rows.map(t => txRow(t, null, id)).join('')}</div>` : '<div class="card empty">گردشی ثبت نشده است.</div>'}`;
+}
+
+async function viewPerson() {
+  $('#view').innerHTML = '<div id="st"><div class="empty">در حال خواندن…</div></div>';
+  let r;
+  try { r = await api(`/api/people/${S.personId}/statement`); }
+  catch (e) { if (e.auth) return showAuth(true); $('#st').innerHTML = '<div class="card empty">حساب این شخص باز نشد.</div>'; return; }
+  S.rows = r.rows;
+  const b = r.person.balance, el = $('#st'); if (!el) return;
+  el.innerHTML = `<button class="ghost" data-act="tab" data-v="accounts">بازگشت به حساب‌ها</button>
+  <div class="card hero"><div class="lbl">${esc(r.person.name)} · ${b > 0 ? 'طلب شما' : b < 0 ? 'بدهی شما' : 'تسویه'}</div>
+    <div class="big">${money(Math.abs(b))} <span class="unit">تومان</span></div></div>
+  <div class="two">${PERSON_OPS.map(([t], i) => `<button class="ghost" data-act="pop" data-i="${i}">${t}</button>`).join('')}</div>
+  <button class="ghost" data-act="pform" data-id="${r.person.id}">ویرایش شخص</button>
+  <h2>گردش</h2>
+  ${r.rows.length ? `<div class="list">${r.rows.map(t => txRow(t)).join('')}</div>` : '<div class="card empty">هنوز چیزی ثبت نشده است.</div>'}`;
+}
+
+function personForm(p) {
+  const o = p?.openingBalance ?? 0;
+  openSheet(`<form id="pf2" novalidate><div class="phead"><h1>${p ? 'ویرایش شخص' : 'شخص تازه'}</h1><button type="button" class="x" data-act="close">بستن</button></div>
+    <label for="pn">نام</label><input id="pn" autocomplete="off" value="${esc(p?.name)}">
+    <label for="po">مانده‌ی اول (اختیاری)</label><input id="po" class="amount" inputmode="numeric" autocomplete="off" value="${o ? fa(group(Math.abs(o))) : ''}">
+    <select id="ps"><option value="1">او به من بدهکار است (طلب من)</option><option value="-1" ${o < 0 ? 'selected' : ''}>من به او بدهکارم</option></select>
+    <div class="err" id="perr2" role="alert"></div><button class="primary">ذخیره</button>
+    ${p ? `<button type="button" class="ghost danger" data-act="pdel" data-id="${p.id}">حذف از فهرست</button>` : ''}</form>`);
+  $('#po').oninput = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
+  $('#pf2').onsubmit = async e => {
+    e.preventDefault();
+    const body = { name: $('#pn').value.trim(), openingBalance: Number(digits($('#po').value) || 0) * Number($('#ps').value) };
+    try { const r = await api(p ? '/api/people/' + p.id : '/api/people', p ? 'PUT' : 'POST', body); closeSheet(); toast('ذخیره شد.');
+      if (!p) { S.personId = r.id; S.view = 'person'; } refresh(); }
+    catch (x) { x.auth ? showAuth(true) : $('#perr2').textContent = x.msg; }
+  };
+}
+
+const nextMonth = ym => { let [y, m] = ym.split('/').map(Number); if (++m > 12) { m = 1; y++; } return `${y}/${String(m).padStart(2, '0')}`; };
+const prevMonth = ym => { let [y, m] = ym.split('/').map(Number); if (--m < 1) { m = 12; y--; } return `${y}/${String(m).padStart(2, '0')}`; };
+async function viewReport() {
+  $('#view').innerHTML = '<div id="rp"><div class="empty">در حال خواندن…</div></div>';
+  let r;
+  try { r = await api('/api/report?month=' + encodeURIComponent(S.month ?? '')); }
+  catch (e) { if (e.auth) return showAuth(true); $('#rp').innerHTML = '<div class="card empty">گزارش باز نشد.</div>'; return; }
+  S.month = r.month;
+  const cmp = (a, b, up) => { if (!b) return ''; const x = Math.round((a - b) * 100 / b); return `<small class="${x === 0 ? '' : (x > 0) === up ? 'pos' : 'neg'}">${x > 0 ? '+' : ''}${fa(x)}٪ نسبت به ماه قبل</small>`; };
+  const max = Math.max(1, ...r.expenses.map(e => Math.max(e.amount, e.budget ?? 0)));
+  const exp = r.expenses.map(e => `<button class="item" data-act="budget" data-id="${e.id}" data-n="${esc(e.name)}" data-b="${e.budget ?? ''}"><span class="t grow"><div>${esc(e.name)}</div>
+    <small>ماه قبل ${money(e.prev)}${e.budget ? ` · سقف ${money(e.budget)}` : ''}</small>
+    <span class="bar"><i class="${e.budget && e.amount > e.budget ? 'over' : ''}" style="width:${Math.round(e.amount * 100 / max)}%"></i>${e.budget ? `<u style="right:${Math.round(e.budget * 100 / max)}%"></u>` : ''}</span></span>
+    <span class="amt neg">${money(e.amount)}</span></button>`).join('');
+  const inc = r.incomes.map(e => `<div class="item"><span class="t"><div>${esc(e.name)}</div><small>ماه قبل ${money(e.prev)}</small></span><span class="amt pos">${money(e.amount)}</span></div>`).join('');
+  const el = $('#rp'); if (!el) return;
+  el.innerHTML = `<h1>گزارش ماهانه</h1>
+  <div class="two"><button class="ghost" data-act="month" data-d="-1">→ ${fa(prevMonth(r.month))}</button><button class="ghost" data-act="month" data-d="1">${fa(nextMonth(r.month))} ←</button></div>
+  <h2>${fa(r.month)}</h2>
+  <div class="stats">
+    <div class="card"><small>درآمد</small><b class="pos">${money(r.income)}</b>${cmp(r.income, r.prevIncome, true)}</div>
+    <div class="card"><small>هزینه</small><b class="neg">${money(r.expense)}</b>${cmp(r.expense, r.prevExpense, false)}</div>
+    <div class="card"><small>خالص</small><b class="${r.income - r.expense < 0 ? 'neg' : 'pos'}">${money(r.income - r.expense)}</b></div>
+  </div>
+  <h2>هزینه به تفکیک دسته</h2>
+  <p class="hint">برای تعیین یا برداشتن سقف ماهانه روی هر دسته بزنید.${r.refund ? ` برگشت وجه این ماه (${money(r.refund)}) از جمع هزینه کم شده است.` : ''}</p>
+  ${exp ? `<div class="list">${exp}</div>` : '<div class="card empty">هزینه‌ای ثبت نشده است.</div>'}
+  <h2>درآمد به تفکیک دسته</h2>
+  ${inc ? `<div class="list">${inc}</div>` : '<div class="card empty">درآمدی ثبت نشده است.</div>'}`;
+}
+
+function recurringSheet() {
+  const h = S.home, accs = h.accounts;
+  const catOpts = kind => h.categories.filter(c => c.type === kind && (c.nature === 'pnl' || ['loan_out', 'debt_out', 'loan_in', 'receivable_in'].includes(c.code)))
+    .map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const list = (h.recurring ?? []).map(r => `<div class="item"><span class="t"><div>${esc(r.name)}</div><small>هر ماه روز ${fa(r.day)} · بعدی ${fa(r.next)}${r.left ? ` · ${fa(r.left)} دفعه مانده` : ''}</small></span>
+    <span class="amt ${r.kind === 'income' ? 'pos' : 'neg'}">${money(r.amount)}</span><button type="button" class="chip" data-act="delrec" data-id="${r.id}">حذف</button></div>`).join('');
+  openSheet(`<form id="rf2" novalidate><div class="phead"><h1>پرداخت‌ها و دریافت‌های ماهانه</h1><button type="button" class="x" data-act="close">بستن</button></div>
+    <p class="hint">قسط، اجاره، قبض یا حقوق. چند روز مانده به سررسید در صفحه‌ی خانه دیده می‌شود و با «ثبت» وارد دفتر می‌شود. یادآوری بیرون از برنامه (اعلان) ممکن نیست.</p>
+    ${list ? `<div class="list">${list}</div>` : ''}
+    <h2>مورد تازه</h2>
+    <label for="rn">نام</label><input id="rn" autocomplete="off" placeholder="مثلاً قسط وام">
+    <label for="rk">نوع</label><select id="rk"><option value="expense">پرداخت</option><option value="income">دریافت</option></select>
+    <label for="ra">مبلغ هر بار (تومان)</label><input id="ra" class="amount" inputmode="numeric" autocomplete="off">
+    <label for="rc">دسته</label><select id="rc">${catOpts('expense')}</select>
+    <label for="racc">حساب</label><select id="racc">${accs.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select>
+    ${h.people?.length ? `<label for="rp2">شخص (اختیاری)</label><select id="rp2">${personOpts(null)}</select>` : ''}
+    <label for="rd">اولین سررسید</label><input id="rd" class="date" inputmode="numeric" value="${fa(today())}">
+    <label for="rl">تعداد دفعه‌ها (خالی = همیشگی)</label><input id="rl" inputmode="numeric" autocomplete="off">
+    <div class="err" id="rerr2" role="alert"></div><button class="primary">افزودن</button></form>`);
+  $('#rk').onchange = e => { $('#rc').innerHTML = catOpts(e.target.value); };
+  $('#ra').oninput = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
+  $('#rf2').onsubmit = async e => {
+    e.preventDefault();
+    const left = digits($('#rl').value);
+    const body = { name: $('#rn').value.trim(), kind: $('#rk').value, amount: Number(digits($('#ra').value)), categoryId: Number($('#rc').value) || null,
+      accountId: Number($('#racc').value), personId: Number($('#rp2')?.value) || null, next: normDate($('#rd').value), left: left ? Number(left) : null };
+    if (!body.amount) return $('#rerr2').textContent = 'مبلغ را وارد کنید.';
+    try { await api('/api/recurring', 'POST', body); toast('اضافه شد.'); await refresh(); recurringSheet(); }
+    catch (x) { x.auth ? showAuth(true) : $('#rerr2').textContent = x.msg; }
+  };
+}
+
+async function exportCsv() {
+  const f = S.filter, p = new URLSearchParams({ limit: 'all' });
+  for (const k of ['q', 'kind', 'accountId', 'from', 'to']) if (f[k]) p.set(k, f[k]);
+  try {
+    const rows = await api('/api/transactions?' + p);
+    if (!rows.length) return toast('موردی برای خروجی نیست.');
+    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const head = ['تاریخ', 'نوع', 'مبلغ (تومان)', 'حساب', 'به حساب', 'دسته', 'شخص', 'شرح', 'یادداشت', 'روش پرداخت'].map(q).join(',');
+    const lines = rows.slice().reverse().map(t => [q(`="${t.date}"`), q(KIND[t.kind]), t.kind === 'expense' ? -t.amount : t.amount,
+      q(t.accountName), q(t.toAccountName), q(t.categoryName), q(t.personName), q(t.description), q(t.notes), q(t.method)].join(','));
+    const name = `hesab-${today().replaceAll('/', '-')}.csv`;
+    if (await saveFile(new File(['\uFEFF' + [head, ...lines].join('\r\n')], name, { type: 'text/csv' }))) toast(`خروجی ${fa(rows.length)} ردیف ساخته شد.`);
+  } catch (e) { e.auth ? showAuth(true) : toast(e.msg || 'خروجی ساخته نشد.'); }
 }
 
 function checkCard(c) {
@@ -197,6 +325,10 @@ function viewMore() {
   <h2>دسته‌های درآمد</h2><div class="chips">${cats('income')}<button class="chip" data-act="addcat" data-t="income">+ دسته‌ی تازه</button></div>
   <h2>تراکنش‌های بانکی</h2><button class="ghost" data-act="inbox">صندوق پیامک‌های بانک</button>
   <h2>نصب روی آیفون</h2><div class="card hint">در Safari دکمه‌ی Share و بعد Add to Home Screen را بزنید.</div>
+  <h2>گزارش و برنامه‌ریزی</h2>
+  <button class="ghost" data-act="report">گزارش ماهانه و سقف خرج</button>
+  <button class="ghost" data-act="recman">پرداخت‌ها و دریافت‌های ماهانه</button>
+  ${S.home.templates?.length ? `<h2>ثبت‌های آماده</h2><div class="chips">${S.home.templates.map(t => `<button class="chip" data-act="deltpl" data-id="${t.id}" data-n="${esc(t.name)}">${esc(t.name)} ×</button>`).join('')}</div>` : ''}
   <h2>پشتیبان</h2><div class="card hint">اطلاعات فقط روی همین گوشی است. فایل پشتیبان را در iCloud Drive یا جای امن دیگری نگه دارید. آخرین پشتیبان: ${S.home.lastBackup ? fa(new Date(S.home.lastBackup).toLocaleDateString('fa-IR')) : 'هنوز گرفته نشده'}</div>
   <button class="ghost" data-act="backup">گرفتن پشتیبان</button><button class="ghost" data-act="restore">بازیابی از فایل</button>
   <h2>امنیت</h2><button class="ghost" data-act="chpass">تغییر رمز</button>
@@ -207,21 +339,21 @@ function openSheet(html) { const s = $('#sheet'); s.innerHTML = `<div class="pan
 function closeSheet() { const s = $('#sheet'); s.hidden = true; s.innerHTML = ''; }
 
 /* فرم ثبت و ویرایش تراکنش. src: تراکنش موجود، یا qid برای ثبت داخل صف */
-function txForm(kind, src, qid) {
+function txForm(kind, src, qid, preset) {
   const accs = S.home.accounts;
   if (!accs.length) return toast('اول یک حساب بسازید.');
-  const last = store.get('lastAcc', null);
-  const accId = src?.accountId ?? (accs.some(a => a.id === last) ? last : accs[0].id);
+  const last = store.get('lastAcc', null), pre = src ?? preset;
+  const accId = pre?.accountId ?? (accs.some(a => a.id === last) ? last : accs[0].id);
   const opts = sel => accs.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
-  const toId = src?.toAccountId ?? accs.find(a => a.id !== accId)?.id;
-  const cats = S.home.categories.filter(c => c.type === kind && (c.nature === 'pnl' || c.id === src?.categoryId));
-  const catId = src?.categoryId ?? null;
+  const toId = pre?.toAccountId ?? accs.find(a => a.id !== accId)?.id;
+  const cats = S.home.categories.filter(c => c.type === kind && (c.nature === 'pnl' || c.id === pre?.categoryId));
+  const catId = pre?.categoryId ?? null;
   const date = src?.date ?? today();
   const editing = !!src;
-  openSheet(`<form id="txf" data-kind="${kind}" data-id="${src?.id ?? ''}" data-qid="${esc(qid ?? '')}" novalidate>
+  openSheet(`<form id="txf" data-kind="${kind}" data-id="${src?.id ?? ''}" data-qid="${esc(qid ?? '')}" data-rid="${preset?.recurringId ?? ''}" novalidate>
     <div class="phead"><h1>${editing ? 'ویرایش ' : ''}${KIND[kind]}</h1><button type="button" class="x" data-act="close">بستن</button></div>
     <label for="amt">مبلغ (تومان)</label>
-    <input id="amt" class="amount" inputmode="numeric" autocomplete="off" value="${src ? fa(group(src.amount)) : ''}">
+    <input id="amt" class="amount" inputmode="numeric" autocomplete="off" value="${pre?.amount ? fa(group(pre.amount)) : ''}">
     <div class="chips"><button type="button" class="chip" data-act="zeros">۰۰۰+</button></div>
     ${kind === 'transfer' ? `<label for="acc">از حساب</label><select id="acc">${opts(accId)}</select>
       <label for="to">به حساب</label><select id="to">${opts(toId)}</select>`
@@ -229,31 +361,41 @@ function txForm(kind, src, qid) {
       <label for="acc">حساب</label><select id="acc">${opts(accId)}</select>`}
     <label for="date">تاریخ</label><input id="date" class="date" inputmode="numeric" value="${fa(date)}">
     <div class="chips"><button type="button" class="chip" data-act="setdate" data-d="t">امروز</button><button type="button" class="chip" data-act="setdate" data-d="y">دیروز</button></div>
-    <label for="desc">شرح</label><input id="desc" autocomplete="off" value="${esc(src?.description)}">
+    ${kind !== 'transfer' && S.home.people?.length ? `<label for="per">شخص (اختیاری)</label><select id="per">${personOpts(pre?.personId ?? null)}</select>` : ''}
+    <label for="desc">شرح</label><input id="desc" autocomplete="off" value="${esc(pre?.description)}">
     <details ${src?.notes || src?.method ? 'open' : ''}><summary>جزئیات بیشتر</summary>
-      <label for="method">روش پرداخت</label><select id="method"><option value=""></option>${METHODS.map(m => `<option ${m === src?.method ? 'selected' : ''}>${m}</option>`).join('')}</select>
+      <label for="method">روش پرداخت</label><select id="method"><option value=""></option>${METHODS.map(m => `<option ${m === pre?.method ? 'selected' : ''}>${m}</option>`).join('')}</select>
       <label for="notes">یادداشت</label><textarea id="notes" rows="2">${esc(src?.notes)}</textarea></details>
     <div class="err" id="err" role="alert">${esc(src?.queueError)}</div>
     <button class="primary">${editing ? 'ذخیره' : 'ثبت'}</button>
-    ${editing ? `<button type="button" class="ghost danger" data-act="deltx">حذف</button>` : ''}
+    ${editing ? `<button type="button" class="ghost danger" data-act="deltx">حذف</button>` : `<button type="button" class="ghost" data-act="savetpl">ذخیره به‌عنوان ثبت آماده</button>`}
   </form>`);
   $('#amt').oninput = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
   $('#txf').onsubmit = e => { e.preventDefault(); submitTx(); };
   if (!editing) $('#amt').focus();
 }
 
-async function submitTx() {
-  const f = $('#txf'), kind = f.dataset.kind, err = $('#err');
+/* خواندن فرم ثبت؛ اگر ایرادی باشد متن خطا برمی‌گردد. */
+function readTx() {
+  const kind = $('#txf').dataset.kind;
   const amount = Number(digits($('#amt').value)), date = normDate($('#date').value);
   const accountId = Number($('#acc').value);
   const toAccountId = kind === 'transfer' ? Number($('#to').value) : null;
   const categoryId = kind === 'transfer' ? null : Number($('#cats .on')?.dataset.id) || null;
-  if (!amount) return err.textContent = 'مبلغ را وارد کنید.';
-  if (kind !== 'transfer' && !categoryId) return err.textContent = 'دسته را انتخاب کنید.';
-  if (kind === 'transfer' && accountId === toAccountId) return err.textContent = 'حساب مبدأ و مقصد نباید یکی باشند.';
-  if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) return err.textContent = 'تاریخ را مثل ۱۴۰۵/۰۸/۱۵ وارد کنید.';
-  const tx = { kind, date, amount, accountId, toAccountId, categoryId, description: $('#desc').value.trim() || null, notes: $('#notes').value.trim() || null, method: $('#method').value || null };
-  store.set('lastAcc', accountId);
+  if (!amount) return 'مبلغ را وارد کنید.';
+  if (kind !== 'transfer' && !categoryId) return 'دسته را انتخاب کنید.';
+  if (kind === 'transfer' && accountId === toAccountId) return 'حساب مبدأ و مقصد نباید یکی باشند.';
+  if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) return 'تاریخ را مثل ۱۴۰۵/۰۸/۱۵ وارد کنید.';
+  return { kind, date, amount, accountId, toAccountId, categoryId, personId: Number($('#per')?.value) || null,
+    description: $('#desc').value.trim() || null, notes: $('#notes').value.trim() || null, method: $('#method').value || null };
+}
+
+async function submitTx() {
+  const f = $('#txf'), err = $('#err');
+  const rt = readTx();
+  if (typeof rt === 'string') return err.textContent = rt;
+  const tx = { ...rt, recurringId: Number(f.dataset.rid) || null };
+  store.set('lastAcc', rt.accountId);
   if (f.dataset.id) {
     try { await api('/api/transactions/' + f.dataset.id, 'PUT', tx); closeSheet(); toast('ذخیره شد.'); refresh(); }
     catch (e) { e.auth ? showAuth(true) : err.textContent = e.net ? 'ویرایش فقط با اتصال به سرور انجام می‌شود.' : e.msg; }
@@ -328,6 +470,52 @@ const actions = {
       catch (x) { if (x.auth) return showAuth(true); $('#cerr').textContent = x.msg || 'رمز عوض نشد.'; btn.disabled = false; }
     };
   },
+  tpl(b) { const t = S.home.templates.find(x => x.id === Number(b.dataset.id)); if (t) txForm(t.kind, null, null, t); },
+  async savetpl() {
+    const rt = readTx(); if (typeof rt === 'string') return $('#err').textContent = rt;
+    const cat = S.home.categories.find(c => c.id === rt.categoryId)?.name;
+    const name = prompt('نام ثبت آماده (روی دکمه نوشته می‌شود)', rt.description || cat || KIND[rt.kind]);
+    if (!name?.trim()) return;
+    try { await api('/api/templates', 'POST', { ...rt, name }); toast('ثبت آماده ساخته شد؛ در صفحه‌ی خانه است.'); await updateHome(); }
+    catch (e) { e.auth ? showAuth(true) : $('#err').textContent = e.msg; }
+  },
+  async deltpl(b) {
+    if (!confirm(`ثبت آماده‌ی «${b.dataset.n}» حذف شود؟`)) return;
+    try { await api('/api/templates/' + b.dataset.id, 'DELETE'); refresh(); } catch (e) { toast(e.msg); }
+  },
+  duepay(b) {
+    const r = S.home.recurring.find(x => x.id === Number(b.dataset.id)); if (!r) return;
+    txForm(r.kind, null, null, { ...r, description: r.description ?? r.name, recurringId: r.id });
+  },
+  async dueskip(b) {
+    if (!confirm('این سررسید بدون ثبت به ماه بعد برود؟')) return;
+    try { await api(`/api/recurring/${b.dataset.id}/skip`, 'POST'); refresh(); } catch (e) { toast(e.msg); }
+  },
+  recman() { recurringSheet(); },
+  async delrec(b) {
+    if (!confirm('این مورد ماهانه حذف شود؟ ثبت‌های قبلی می‌مانند.')) return;
+    try { await api('/api/recurring/' + b.dataset.id, 'DELETE'); await refresh(); recurringSheet(); } catch (e) { toast(e.msg); }
+  },
+  person(b) { S.personId = Number(b.dataset.id); S.view = 'person'; render(); window.scrollTo(0, 0); },
+  pform(b) { personForm(b.dataset.id ? S.home.people.find(p => p.id === Number(b.dataset.id)) : null); },
+  pop(b) {
+    const [, kind, code] = PERSON_OPS[Number(b.dataset.i)];
+    txForm(kind, null, null, { categoryId: catByCode(code), personId: S.personId });
+  },
+  async pdel(b) {
+    if (!confirm('این شخص از فهرست برداشته شود؟ ثبت‌های قبلی می‌مانند.')) return;
+    try { await api('/api/people/' + b.dataset.id, 'DELETE'); closeSheet(); S.view = 'accounts'; refresh(); } catch (e) { $('#perr2').textContent = e.msg; }
+  },
+  report() { S.view = 'report'; render(); window.scrollTo(0, 0); },
+  month(b) { S.month = (b.dataset.d === '1' ? nextMonth : prevMonth)(S.month); render(); },
+  async budget(b) {
+    const v = prompt(`سقف خرج ماهانه‌ی «${b.dataset.n}» به تومان (خالی = بدون سقف)`, b.dataset.b ? fa(group(b.dataset.b)) : '');
+    if (v === null) return;
+    const n = Number(digits(v));
+    try { await api(`/api/categories/${b.dataset.id}/budget`, 'PUT', { budget: n || null }); toast(n ? 'سقف ذخیره شد.' : 'سقف برداشته شد.'); refresh(); }
+    catch (e) { toast(e.msg); }
+  },
+  export: exportCsv,
   stmt(b) { S.accId = Number(b.dataset.id); S.view = 'stmt'; render(); window.scrollTo(0, 0); },
   acc(b) { accForm(S.home.accounts.find(a => a.id === Number(b.dataset.id))); },
   async archive(b) {

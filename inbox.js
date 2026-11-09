@@ -57,6 +57,8 @@ function evExtra(purpose, sug) {
   } else if (purpose === 'transfer') {
     const others = S.home.accounts.filter(a => a.id !== Number($('#eacc').value));
     el.innerHTML = `<label for="eoth">${e.direction === 'deposit' ? 'از حساب' : 'به حساب'}</label><select id="eoth">${others.map(a => `<option value="${a.id}" ${a.id === sug?.otherAccountId ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>`;
+  } else if (['receivable', 'loan', 'debt'].includes(purpose) && S.home.people?.length) {
+    el.innerHTML = `<label for="eper">شخص</label><select id="eper">${personOpts(sug?.personId ?? null)}</select>`;
   } else el.innerHTML = '';
 }
 
@@ -80,7 +82,7 @@ function resolveCard() {
   if ((purpose === 'income' || purpose === 'expense') && !categoryId) return err.textContent = 'دسته را انتخاب کنید.';
   const otherAccountId = purpose === 'transfer' ? Number($('#eoth')?.value) || null : null;
   if (purpose === 'transfer' && !otherAccountId) return err.textContent = 'حساب دیگر را انتخاب کنید.';
-  sendResolve({ purpose, accountId, categoryId, otherAccountId, description: $('#edesc').value.trim() || null, transactionId: null });
+  sendResolve({ purpose, accountId, categoryId, otherAccountId, personId: Number($('#eper')?.value) || null, description: $('#edesc').value.trim() || null, transactionId: null });
 }
 
 Object.assign(actions, {

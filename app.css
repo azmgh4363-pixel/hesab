@@ -366,9 +366,89 @@ ol.hint{padding-inline-start:20px}
 .thumb{width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid var(--line);transition:all .3s var(--ease)}
 .thumb.big{width:100%;height:auto;max-height:70vh;object-fit:contain}
 .clip{font-size:12px;opacity:.8}
-.ops .mic{font-size:17px}
-.ops .mic.rec{background:linear-gradient(180deg,#ff6b7f,#d93a50);color:#fff;border-color:transparent;animation:pulse 1.2s ease-in-out infinite}
 .mask .sl .amtx{filter:none}
+
+/* کارت بانکی */
+.bcards{display:grid;gap:12px}
+.bcard{position:relative;display:grid;grid-template-columns:1fr auto;grid-template-areas:"bt bt" "bn bn" "bal bal" "bno bno";gap:2px;width:100%;aspect-ratio:1.75;max-height:210px;
+  padding:18px 20px;border-radius:22px;text-align:right;color:#fff;overflow:hidden;
+  background:radial-gradient(120% 90% at 0% 0%,rgb(255 255 255/.22),transparent 55%),linear-gradient(135deg,var(--c1),var(--c2));
+  border:1px solid rgb(255 255 255/.18);box-shadow:inset 0 1px 0 rgb(255 255 255/.35),0 16px 34px rgb(0 0 0/.45)}
+.bcard::before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;left:-90px;bottom:-150px;background:rgb(255 255 255/.08)}
+.bcard::after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;left:30px;bottom:-130px;background:rgb(255 255 255/.06)}
+.bcard>span{position:relative;z-index:1}
+.bt{grid-area:bt;display:flex;justify-content:space-between;align-items:center}
+.bt b{font-size:17px;letter-spacing:.3px}
+.chipg{width:42px;height:31px;border-radius:7px;background:linear-gradient(135deg,#f3dc8c,#b8902e 60%,#f1d27a);box-shadow:inset 0 0 0 1px rgb(0 0 0/.2)}
+.wal{font-style:normal;font-size:26px}
+.bn{grid-area:bn;font-size:14px;opacity:.85;margin-top:6px}
+.bcard .bal{grid-area:bal;font-size:28px;font-weight:800;align-self:end;margin-top:auto;text-shadow:0 2px 12px rgb(0 0 0/.3)}
+.bcard .bal small{font-size:13px;font-weight:400;opacity:.8}
+.bcard .bal.neg{color:#ffd0d6}
+.bno{grid-area:bno;direction:ltr;text-align:left;font-size:15px;letter-spacing:2px;opacity:.85;font-variant-numeric:tabular-nums}
+.mask .bcard .bal{filter:blur(9px)}
+
+/* نمودار موجودی */
+.spark{position:relative;z-index:1;margin:12px -6px -4px}
+.spark svg{display:block;width:100%;height:56px}
+.spl{fill:none;stroke:rgb(var(--acct));stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 5px rgb(var(--acc)/.7));stroke-dasharray:2000;animation:spk 1.4s var(--ease) both}
+@keyframes spk{from{stroke-dashoffset:2000}}
+.spk{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-top:4px;padding:0 6px}
+.spk button{font-size:12px;padding:3px 9px;border-radius:9px;color:rgb(255 255 255/.7)}
+.spk button.on{background:rgb(255 255 255/.16);color:#fff}
+
+/* دکمه‌ی شناور */
+#fab{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom) + 84px);z-index:6;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+#tabs[hidden]+#fab{display:none}
+.fabb{width:58px;height:58px;border-radius:20px;font-size:32px;font-weight:300;line-height:1;color:#fff;
+  background:linear-gradient(180deg,rgb(var(--accl)),var(--brand2));box-shadow:inset 0 1px 0 rgb(255 255 255/.5),0 12px 28px var(--glow);transition:transform .35s var(--spring)}
+#fab.open .fabb{transform:rotate(45deg)}
+.fanm{display:flex;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}
+.fanm button{display:flex;align-items:center;gap:8px;padding:9px 14px 9px 16px;border-radius:16px;font-weight:700;font-size:14.5px;color:#fff;
+  background:linear-gradient(180deg,rgb(30 46 74/.92),rgb(12 20 36/.95));border:1px solid rgb(var(--accl)/.3);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  box-shadow:0 8px 22px rgb(0 0 0/.4);opacity:0;transform:translateY(16px) scale(.9);transition:opacity .2s,transform .35s var(--spring)}
+.fanm button i{font-style:normal;font-size:17px}
+.fanm button.main{background:linear-gradient(180deg,rgb(var(--accl)),var(--brand2));border-color:transparent}
+#fab.open .fanm{pointer-events:auto}
+#fab.open .fanm button{opacity:1;transform:none}
+#fab.open .fanm button:nth-last-child(2){transition-delay:.03s}#fab.open .fanm button:nth-last-child(3){transition-delay:.06s}
+#fab.open .fanm button:nth-last-child(4){transition-delay:.09s}#fab.open .fanm button:nth-last-child(n+5){transition-delay:.12s}
+#toast{bottom:calc(env(safe-area-inset-bottom) + 154px)}
+
+/* پیشنهاد دسته */
+.chip.on.guessed::after{content:" ✨"}
+
+/* خرج تکراری */
+.subc{margin-top:8px}
+.subt{display:flex;gap:12px;align-items:center}
+.subt small{display:block;color:var(--mute);font-size:12.5px}
+
+/* نشان‌ها */
+.badges{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.bdg{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:14px 8px;border-radius:18px;background:rgb(255 255 255/.03);border:1px dashed rgb(255 255 255/.12);opacity:.55}
+.bdg span{font-size:30px;filter:grayscale(1)}
+.bdg b{font-size:14px}
+.bdg small{font-size:11.5px;color:var(--mute)}
+.bdg.got{opacity:1;background:var(--glass);border:1px solid rgb(255 207 107/.35);box-shadow:0 0 18px rgb(255 191 64/.12)}
+.bdg.got span{filter:drop-shadow(0 0 10px rgb(255 207 107/.6))}
+
+/* جشن نشان */
+#confetti{position:fixed;inset:0;z-index:60;overflow:hidden;display:grid;place-items:center}
+#confetti i{position:absolute;top:-20px;width:9px;height:14px;border-radius:2px;animation:fall 2.6s cubic-bezier(.2,.6,.4,1) both}
+@keyframes fall{to{transform:translate(var(--x),110vh) rotate(var(--r))}}
+.cbox{display:flex;flex-direction:column;align-items:center;gap:4px;padding:26px 34px;border-radius:28px;text-align:center;
+  background:linear-gradient(180deg,rgb(40 60 100/.9),rgb(10 18 32/.94));border:1px solid rgb(255 207 107/.45);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  box-shadow:0 20px 50px rgb(0 0 0/.55),0 0 40px rgb(255 191 64/.25);animation:pop 3.4s var(--spring) both}
+.cbox span{font-size:64px;animation:popIc .8s var(--spring) both}
+.cbox small{color:#ffcf6b;font-weight:700}
+.cbox b{font-size:22px}
+.cbox p{margin:0;color:var(--mute);font-size:14px}
+
+/* استوری: کارت اشتراکی */
+.sfoot{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:12px}
+.sshare{padding:10px 20px;border-radius:16px;font-weight:700;color:#fff;background:rgb(255 255 255/.14);border:1px solid rgb(255 255 255/.25)}
+.sfoot .shint{margin:0}
+.sbars i.paused::after{animation-play-state:paused}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}

@@ -108,12 +108,12 @@ const Core = (() => {
       cat('برگشت وجه', 'income', 'refund', 'refund'), cat('سایر واریزها', 'income', 'balance', 'other_in'),
       cat('پرداخت بدهی', 'expense', 'balance', 'debt_out'), cat('پرداخت قرض', 'expense', 'balance', 'loan_out'),
       cat('برداشت شخصی', 'expense', 'balance', 'personal'), cat('سایر برداشت‌ها', 'expense', 'balance', 'other_out')];
-    return { v: 1, seq: id + 1, categories, tx: [], entries: [], events: [], rules: [], audit: [], lastBackup: null, people: [], templates: [], recurring: [], goals: [], photos: {},
+    return { v: 1, seq: id + 1, categories, tx: [], entries: [], events: [], rules: [], audit: [], lastBackup: null, people: [], templates: [], recurring: [], goals: [], photos: {}, subsHidden: [],
       accounts: [{ id: id + 1, name: 'کیف پول', kind: 'cash', bankName: null, accountNumber: null, openingBalance: 0, archived: 0 }] };
   }
   const nextId = () => ++S.seq + 1000;
   /* اطلاعات نسخه‌های قبل بخش‌های تازه را ندارند. */
-  const upgrade = s => { s.people ??= []; s.templates ??= []; s.recurring ??= []; s.goals ??= []; s.photos ??= {}; return s; };
+  const upgrade = s => { s.people ??= []; s.templates ??= []; s.recurring ??= []; s.goals ??= []; s.photos ??= {}; s.subsHidden ??= []; return s; };
   const audit = (action, entity, id, before, after) => S.audit.push({ at: new Date().toISOString(), action, entity, id, before: before ?? null, after: after ?? null });
   const account = id => S.accounts.find(a => a.id === id);
   const live = id => { const t = S.tx.find(x => x.id === id && !x.deletedAt); if (!t) throw bad('تراکنش پیدا نشد.'); return t; };
@@ -312,6 +312,88 @@ const Core = (() => {
     for (let x = today; !spent.has(x) && x >= dates[0]; x = addDay(x, -1)) cur++;
     return { current: cur, best };
   }
+  /* موجودی کل در پایان هر روز (قدیمی اول) */
+  function series(today, n = 90) {
+    const txDate = new Map(S.tx.filter(t => !t.deletedAt).map(t => [t.id, t.date])), byDate = new Map();
+    for (const e of S.entries) if (e.accountId != null) { const dt = txDate.get(e.txId); if (dt) byDate.set(dt, (byDate.get(dt) ?? 0) + e.amount); }
+    let total = S.accounts.reduce((s, a) => s + balance(a), 0);
+    for (const [dt, v] of byDate) if (dt > today) total -= v;
+    const out = []; let dt = today;
+    for (let i = 0; i < n; i++) { out.unshift({ date: dt, total }); total -= byDate.get(dt) ?? 0; dt = addDay(dt, -1); }
+    return out;
+  }
+  /* پیشنهاد دسته از روی شرح‌های قبلی */
+  function guess(q, kind) {
+    const w = String(q ?? '').trim(); if (w.length < 2) return null;
+    const score = new Map();
+    S.tx.forEach((t, i) => {
+      if (t.deletedAt || t.kind !== kind || !t.categoryId || !t.description || t.description.length < 2) return;
+      const ds = t.description;
+      if (ds === w || ds.includes(w) || w.includes(ds)) score.set(t.categoryId, (score.get(t.categoryId) ?? 0) + (ds === w ? 3 : 1) + i / 1e7);
+    });
+    let best = null; for (const [id, s] of score) if (!best || s > best[1]) best = [id, s];
+    const c = best && S.categories.find(x => x.id === best[0] && !x.archived && x.nature === 'pnl');
+    return c ? { categoryId: c.id } : null;
+  }
+  /* خرج‌های تکراری ماهانه که هنوز در «پرداخت‌های ماهانه» نیستند */
+  function subs(today) {
+    const months = []; let ym = today.slice(0, 7);
+    for (let i = 0; i < 4; i++) { months.push(ym); ym = prevMonth(ym); }
+    const groups = new Map();
+    for (const t of S.tx) {
+      if (t.deletedAt || t.kind !== 'expense' || !t.description || !months.includes(t.date.slice(0, 7))) continue;
+      if (S.categories.find(c => c.id === t.categoryId)?.nature !== 'pnl') continue;
+      const key = t.description.trim() + '|' + t.categoryId;
+      (groups.get(key) ?? groups.set(key, []).get(key)).push(t);
+    }
+    const out = [];
+    for (const [key, list] of groups) {
+      if (S.subsHidden.includes(key)) continue;
+      const ms = new Set(list.map(t => t.date.slice(0, 7))); if (ms.size < 3) continue;
+      const amts = list.map(t => t.amount).sort((a, b) => a - b), med = amts[Math.floor(amts.length / 2)];
+      if (amts.some(a => Math.abs(a - med) > med * 0.15)) continue;
+      const last = list.reduce((a, b) => (b.date > a.date ? b : a)), name = last.description.trim();
+      if (S.recurring.some(r => r.name === name || (r.categoryId === last.categoryId && Math.abs(r.amount - med) <= med * 0.15))) continue;
+      let next = addMonth(last.date, Number(last.date.slice(8)));
+      while (next <= today) next = addMonth(next, Number(last.date.slice(8)));
+      out.push({ key, name, amount: med, categoryId: last.categoryId, accountId: last.accountId, next, months: ms.size });
+    }
+    return out.sort((a, b) => b.amount - a.amount);
+  }
+  /* نشان‌های افتخار */
+  function badges(today, ns) {
+    const live = S.tx.filter(t => !t.deletedAt), ym = today.slice(0, 7), pm = prevMonth(ym), pt = monthTotals(pm);
+    const bud = S.categories.filter(c => c.budget && !c.archived);
+    const past = trend(prevMonth(ym), 12);
+    const list = [
+      ['first', '✍️', 'اولین ثبت', 'اولین تراکنش را ثبت کردید', live.length >= 1],
+      ['hundred', '💯', 'صد ثبت', '۱۰۰ تراکنش ثبت کردید', live.length >= 100],
+      ['streak3', '🌱', 'سه روز آرام', '۳ روز پشت سر هم بدون هزینه', ns.best >= 3],
+      ['streak7', '🔥', 'هفته‌ی بدون خرج', '۷ روز پشت سر هم بدون هزینه', ns.best >= 7],
+      ['goal', '🎯', 'هدف‌گیر', 'یک هدف پس‌انداز را کامل کردید', S.goals.some(g => g.saved >= g.target)],
+      ['budget', '🛡️', 'زیر سقف', 'یک ماه کامل از هیچ سقفی رد نشدید', bud.length > 0 && pt.expense > 0 && bud.every(c => (pt.by.get(c.id) ?? 0) <= c.budget)],
+      ['saver', '💚', 'ماه مثبت', 'یک ماه درآمدتان از خرجتان بیشتر بود', past.some(m => m.income > 0 && m.income > m.expense)],
+      ['backup', '🛟', 'پشتیبان‌گیر', 'از اطلاعاتتان پشتیبان گرفتید', !!S.lastBackup],
+      ['dang', '👥', 'اهل دنگ', 'یک خرج را با دیگران تقسیم کردید', live.some(t => t.description?.startsWith('دنگ '))],
+      ['sms', '📩', 'بانک‌خوان', '۱۰ پیامک بانک را تعیین تکلیف کردید', S.events.filter(e => e.status !== 'pending' && e.status !== 'ignored').length >= 10],
+    ];
+    return list.map(([k, icon, name, desc, got]) => ({ k, icon, name, desc, got: !!got }));
+  }
+  /* جمع‌بندی سال */
+  function year(y) {
+    y = Number(y) || Number(todayJ().slice(0, 4));
+    const by = new Map(), months = []; let income = 0, expense = 0, count = 0, biggest = null;
+    for (let m = 1; m <= 12; m++) {
+      const ym = `${y}/${String(m).padStart(2, '0')}`, t = monthTotals(ym), st = monthStats(ym);
+      months.push({ month: ym, income: t.income, expense: t.expense });
+      income += t.income; expense += t.expense; count += st.count;
+      if (st.biggest && (!biggest || st.biggest.amount > biggest.amount)) biggest = st.biggest;
+      for (const [id, v] of t.by) by.set(id, (by.get(id) ?? 0) + v);
+    }
+    const top = [...by].map(([id, amount]) => ({ c: S.categories.find(x => x.id === id), amount })).filter(x => x.c?.type === 'expense' && x.amount > 0)
+      .sort((a, b) => b.amount - a.amount).slice(0, 3).map(x => ({ name: x.c.name, amount: x.amount }));
+    return { year: y, income, expense, count, biggest, months, top };
+  }
   function report(ym) {
     if (!/^\d{4}\/\d{2}$/.test(ym ?? '')) ym = todayJ().slice(0, 7);
     const cur = monthTotals(ym), prev = monthTotals(prevMonth(ym));
@@ -351,6 +433,7 @@ const Core = (() => {
     return { today, cash: total('cash'), bank: total('bank'), income, expense, net: income - expense, backupDue, lastBackup: S.lastBackup,
       pending: S.events.filter(e => e.status === 'pending').length, accounts: list, categories: categories(), recent: txRows({}, 8), checks: balanceChecks(),
       people: people(), templates: S.templates, recurring: S.recurring, due: dueList(today), budgets,
+      series: series(today), subs: subs(today), badges: badges(today, noSpend(today)),
       noSpend: noSpend(today), budgetAll: S.categories.filter(c => c.budget && !c.archived).map(c => ({ id: c.id, name: c.name, budget: c.budget, spent: mt.by.get(c.id) ?? 0 })),
       cats, prevToDate: monthTotals(prevMonth(today.slice(0, 7)), today.slice(8)).expense, trend: trend(today.slice(0, 7)), goals: S.goals };
   }
@@ -583,6 +666,9 @@ const Core = (() => {
       else { if (personBalance(x) !== 0) throw bad('حساب این شخص تسویه نشده است.'); x.archived = 1; audit('archive', 'person', id); }
     });
     if (p === '/api/split') return commit(() => split(body));
+    if (p === '/api/guess') return guess(url.searchParams.get('q'), url.searchParams.get('kind'));
+    if (p === '/api/year') return year(url.searchParams.get('y'));
+    if (p === '/api/subs/hide') return commit(() => { if (typeof body?.key === 'string' && !S.subsHidden.includes(body.key)) S.subsHidden.push(body.key); });
     if (p.startsWith('/api/transactions/') && p.endsWith('/photo')) {
       live(id);
       if (method === 'GET') return { data: S.photos[id] ?? null };

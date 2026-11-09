@@ -144,6 +144,19 @@ summary{color:var(--mute);font-size:14px;padding:6px 0}
 .field>svg{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:19px;height:19px;stroke:var(--mute);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .field .eye{position:absolute;left:6px;top:50%;transform:translateY(-50%);padding:8px;color:var(--mute)}
 .field .eye svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;display:block}
+.dfield input{padding-inline-start:14px;padding-inline-end:46px}
+#cal{position:fixed;inset:0;z-index:30;background:rgb(0 4 12/.5);display:flex;align-items:flex-end;justify-content:center;animation:fade .2s both}
+.calbox{width:100%;max-width:420px;margin:0 8px calc(env(safe-area-inset-bottom) + 8px);padding:14px;border-radius:24px;border:1px solid var(--line);
+  background:linear-gradient(180deg,rgb(24 38 62/.94),rgb(8 14 26/.97));-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  box-shadow:0 18px 40px rgb(0 0 0/.5);animation:sheetUp .45s var(--spring) both}
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.calhead b{font-size:17px}
+.calhead button{width:44px;height:44px;border-radius:14px;background:rgb(255 255 255/.06);font-size:22px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.calgrid.wk span{color:var(--mute);font-size:12.5px;padding:4px 0}
+.calgrid button{height:42px;border-radius:12px;font-size:15px}
+.calgrid button.now{border:1px solid rgb(120 200 255/.55);color:#9fdcff}
+.calgrid button.on{background:linear-gradient(180deg,#62c9ff,var(--brand2));color:#fff;box-shadow:0 4px 14px var(--glow)}
 .lockicon{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;margin:0 0 14px;
   background:linear-gradient(180deg,rgb(98 201 255/.3),rgb(37 119 240/.25));border:1px solid rgb(120 200 255/.35);box-shadow:0 0 26px var(--glow)}
 .lockicon svg{width:28px;height:28px;stroke:#d9f2ff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -177,3 +190,4 @@ ol.hint{padding-inline-start:20px}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+.field .eye:active{transform:translateY(-50%) scale(.92)}

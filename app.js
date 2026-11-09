@@ -112,6 +112,7 @@ const ICON = {
   income: '<svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>',
   transfer: '<svg viewBox="0 0 24 24"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  cal: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   eye: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
 };
 
@@ -178,8 +179,8 @@ async function viewList() {
   <input id="q" type="search" placeholder="جستجو در شرح و دسته" value="${esc(f.q)}" aria-label="جستجو">
   <select id="fa" aria-label="حساب"><option value="">همه‌ی حساب‌ها</option>${S.home.accounts.map(a => `<option value="${a.id}" ${String(a.id) === String(f.accountId ?? '') ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
   <div class="chips">${[['', 'همه'], ['expense', 'هزینه'], ['income', 'درآمد'], ['transfer', 'انتقال']].map(([k, t]) => `<button class="chip ${(f.kind || '') === k ? 'on' : ''}" data-act="fkind" data-k="${k}">${t}</button>`).join('')}</div>
-  <div class="two"><div><label for="ff">از تاریخ</label><input id="ff" class="date" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۰۱" value="${esc(f.from)}"></div>
-  <div><label for="ft">تا تاریخ</label><input id="ft" class="date" inputmode="numeric" placeholder="۱۴۰۵/۰۸/۳۰" value="${esc(f.to)}"></div></div>
+  <div class="two"><div><label for="ff">از تاریخ</label>${dateInput('ff', esc(f.from), '۱۴۰۵/۰۸/۰۱')}</div>
+  <div><label for="ft">تا تاریخ</label>${dateInput('ft', esc(f.to), '۱۴۰۵/۰۸/۳۰')}</div></div>
   <div id="rows" class="list mt"></div>
   <button class="ghost" data-act="export">خروجی اکسل (همین فهرست)</button>`;
   $('#q').oninput = debounce(e => { f.q = e.target.value; loadRows(); });
@@ -313,7 +314,7 @@ function recurringSheet() {
     <label for="rc">دسته</label><select id="rc">${catOpts('expense')}</select>
     <label for="racc">حساب</label><select id="racc">${accs.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select>
     ${h.people?.length ? `<label for="rp2">شخص (اختیاری)</label><select id="rp2">${personOpts(null)}</select>` : ''}
-    <label for="rd">اولین سررسید</label><input id="rd" class="date" inputmode="numeric" value="${fa(today())}">
+    <label for="rd">اولین سررسید</label>${dateInput('rd', fa(today()))}
     <label for="rl">تعداد دفعه‌ها (خالی = همیشگی)</label><input id="rl" inputmode="numeric" autocomplete="off">
     <div class="err" id="rerr2" role="alert"></div><button class="primary">افزودن</button></form>`);
   $('#rk').onchange = e => { $('#rc').innerHTML = catOpts(e.target.value); };
@@ -397,7 +398,7 @@ function txForm(kind, src, qid, preset) {
       <label for="to">به حساب</label><select id="to">${opts(toId)}</select>`
       : `<label>دسته</label><div class="chips" id="cats">${cats.map(c => `<button type="button" class="chip ${c.id === catId ? 'on' : ''}" data-act="cat" data-id="${c.id}">${esc(c.name)}</button>`).join('')}</div>
       <label for="acc">حساب</label><select id="acc">${opts(accId)}</select>`}
-    <label for="date">تاریخ</label><input id="date" class="date" inputmode="numeric" value="${fa(date)}">
+    <label for="date">تاریخ</label>${dateInput('date', fa(date))}
     <div class="chips"><button type="button" class="chip" data-act="setdate" data-d="t">امروز</button><button type="button" class="chip" data-act="setdate" data-d="y">دیروز</button></div>
     ${kind !== 'transfer' && S.home.people?.length ? `<label for="per">شخص (اختیاری)</label><select id="per">${personOpts(pre?.personId ?? null)}</select>` : ''}
     <label for="desc">شرح</label><input id="desc" autocomplete="off" value="${esc(pre?.description)}">
@@ -583,9 +584,62 @@ const actions = {
 };
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
-  if (b) { e.preventDefault(); actions[b.dataset.act]?.(b); }
+  if (b) { e.preventDefault(); (actions[b.dataset.act] ?? calActs[b.dataset.act])?.(b); }
   else if (e.target.id === 'sheet') closeSheet();
+  else if (e.target.id === 'cal') closeCal();
 });
+
+/* تاریخ: فقط رقم تایپ می‌شود و ممیزها خودکار گذاشته می‌شوند (صفحه‌کلید عددی آیفون «/» ندارد) */
+const dateInput = (id, val, ph = '') => `<div class="field dfield"><input id="${id}" class="date" data-date inputmode="numeric" autocomplete="off" placeholder="${ph}" value="${val}"><button type="button" class="eye" data-act="cal" data-for="${id}" aria-label="انتخاب از تقویم">${ICON.cal}</button></div>`;
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (!el.matches?.('[data-date]')) return;
+  const n = digits(el.value).slice(0, 8);
+  el.value = fa(n.slice(0, 4) + (n.length > 4 ? '/' + n.slice(4, 6) : '') + (n.length > 6 ? '/' + n.slice(6) : ''));
+});
+
+/* تقویم شمسی */
+const MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+const mDays = (y, m) => m <= 6 ? 31 : m <= 11 ? 30 : Core.validDate(`${y}/12/30`) ? 30 : 29;
+const p2 = n => String(n).padStart(2, '0');
+function jOrd(y, m, d) { // روز چندم از ۱۳۰۰/۰۱/۰۱
+  let n = 0;
+  for (let i = 1300; i < y; i++) n += Core.validDate(`${i}/12/30`) ? 366 : 365;
+  for (let i = 1; i < m; i++) n += mDays(y, i);
+  return n + d - 1;
+}
+const satIdx = (y, m, d) => { // شنبه = ۰
+  const [ty, tm, td] = today().split('/').map(Number);
+  return (((new Date().getDay() + 1) % 7 - jOrd(ty, tm, td) + jOrd(y, m, d)) % 7 + 7) % 7;
+};
+function openCal(input) {
+  const v = normDate(input.value), [y, m] = (Core.validDate(v) ? v : today()).split('/').map(Number);
+  S.cal = { input, y, m };
+  let box = $('#cal');
+  if (!box) { box = document.createElement('div'); box.id = 'cal'; document.body.append(box); }
+  box.hidden = false; drawCal();
+}
+function closeCal() { const c = $('#cal'); if (c) { c.hidden = true; c.innerHTML = ''; } S.cal = null; }
+function drawCal() {
+  const { y, m, input } = S.cal, sel = normDate(input.value), now = today(), first = satIdx(y, m, 1);
+  let cells = '';
+  for (let i = 0; i < first; i++) cells += '<span></span>';
+  for (let d = 1; d <= mDays(y, m); d++) {
+    const s = `${y}/${p2(m)}/${p2(d)}`;
+    cells += `<button type="button" class="${s === sel ? 'on' : ''} ${s === now ? 'now' : ''}" data-act="calday" data-d="${s}">${fa(d)}</button>`;
+  }
+  $('#cal').innerHTML = `<div class="calbox" role="dialog" aria-label="تقویم">
+    <div class="calhead"><button type="button" data-act="calmove" data-n="-1" aria-label="ماه قبل">›</button><b>${MONTHS[m - 1]} ${fa(y)}</b><button type="button" data-act="calmove" data-n="1" aria-label="ماه بعد">‹</button></div>
+    <div class="calgrid wk">${['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map(w => `<span>${w}</span>`).join('')}</div>
+    <div class="calgrid">${cells}</div>
+    <div class="two"><button type="button" class="ghost" data-act="calday" data-d="${now}">امروز</button><button type="button" class="ghost" data-act="calclose">بستن</button></div></div>`;
+}
+const calActs = {
+  cal(b) { openCal($('#' + b.dataset.for)); },
+  calmove(b) { const c = S.cal; c.m += Number(b.dataset.n); if (c.m < 1) { c.m = 12; c.y--; } if (c.m > 12) { c.m = 1; c.y++; } if (c.y < 1300 || c.y > 1500) { c.y = Math.min(1500, Math.max(1300, c.y)); } drawCal(); },
+  calday(b) { const el = S.cal.input; el.value = fa(b.dataset.d); el.dispatchEvent(new Event('change', { bubbles: true })); closeCal(); },
+  calclose() { closeCal(); },
+};
 
 function showAuth(hasUser) {
   closeSheet();

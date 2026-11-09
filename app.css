@@ -268,6 +268,16 @@ ol.hint{padding-inline-start:20px}
 .item .amt,.hero .big,.hero .row,.stats b,.donut .dv,.amtx,.dayhead small,.due .row b+b,.goal small,.goalhead b{transition:filter .3s}
 .mask .item .amt,.mask .hero .big,.mask .hero .row,.mask .stats b,.mask .donut .dv,.mask .amtx,.mask .dayhead small,.mask .due .row b+b,.mask .goal small,.mask .goalhead b{filter:blur(8px)}
 
+/* ثبت آماده با یک لمس */
+.tplhint{margin:-4px 4px 6px;font-size:12.5px}
+.tplc{display:inline-flex;align-items:stretch}
+.tplc .go{border-radius:0 20px 20px 0;border-inline-end:0;font-weight:700;background:linear-gradient(180deg,rgb(98 201 255/.16),rgb(37 119 240/.1));border-color:rgb(120 200 255/.3)}
+.tplc .go small{color:var(--mute);font-weight:400;font-size:12px;margin-inline-start:4px}
+.tplc .ed{border-radius:20px 0 0 20px;padding:6px 12px;color:var(--mute);border-color:rgb(120 200 255/.3)}
+.tplc .go:disabled{opacity:.5}
+.mask .tplc .go small{filter:blur(6px)}
+#toast.withbtn{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:right}
+#toast .undo{flex:none;padding:6px 14px;border-radius:12px;font-weight:700;color:#9fdcff;background:rgb(63 183 255/.16);border:1px solid rgb(120 200 255/.35)}
 /* تیک ثبت موفق */
 #done{position:fixed;inset:0;z-index:40;display:grid;place-items:center;pointer-events:none}
 #done>div{display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 30px;border-radius:26px;

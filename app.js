@@ -34,7 +34,7 @@ async function api(path, method = 'GET', body) { return Core.handle(path, method
 
 let toastTimer;
 function toast(t) {
-  const el = $('#toast'); el.textContent = t; el.hidden = false;
+  const el = $('#toast'); el.textContent = t; el.hidden = false; el.classList.remove('withbtn');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 2600);
 }
 
@@ -161,7 +161,7 @@ function viewHome() {
     <button data-act="new" data-k="income">${ICON.income}درآمد</button>
     <button data-act="new" data-k="transfer">${ICON.transfer}انتقال</button>
   </div>
-  ${h.templates?.length ? `<h2>ثبت سریع</h2><div class="chips">${h.templates.map(t => `<button class="chip" data-act="tpl" data-id="${t.id}">${esc(t.name)}</button>`).join('')}</div>` : ''}
+  ${h.templates?.length ? `<h2>ثبت سریع</h2><p class="hint tplhint">با یک لمس ثبت می‌شود؛ ✎ برای عوض کردن مبلغ.</p><div class="chips">${h.templates.map(t => `<span class="tplc"><button class="chip go" data-act="tplgo" data-id="${t.id}">${t.kind === 'transfer' ? '⇄' : catEmoji(h.categories.find(c => c.id === t.categoryId)?.name, t.kind)} ${esc(t.name)} <small>${money(t.amount)}</small></button><button class="chip ed" data-act="tpl" data-id="${t.id}" aria-label="ویرایش و بعد ثبت ${esc(t.name)}">✎</button></span>`).join('')}</div>` : ''}
   ${h.due?.length ? `<h2>سررسیدها</h2>${h.due.map(r => `<div class="card due"><div class="row"><b>${esc(r.name)}</b><b class="${r.kind === 'income' ? 'pos' : 'neg'}">${money(r.amount)}</b></div>
     <small class="${r.overdue ? 'neg' : ''}">سررسید ${fa(r.next)}${r.overdue ? ' (گذشته)' : ''}${r.left ? ` · ${fa(r.left)} دفعه مانده` : ''}</small>
     <div class="two"><button class="ghost" data-act="duepay" data-id="${r.id}">ثبت</button><button class="ghost" data-act="dueskip" data-id="${r.id}">این بار نه</button></div></div>`).join('')}` : ''}
@@ -896,7 +896,32 @@ function goalSheet(g) {
   if (!g) $('#gn').focus();
 }
 
+/* اعلان با دکمه‌ی «برگرداندن» */
+function toastUndo(text, fn) {
+  const el = $('#toast');
+  el.innerHTML = `<span>${esc(text)}</span><button type="button" class="undo">برگرداندن</button>`;
+  el.hidden = false; el.classList.add('withbtn');
+  el.querySelector('.undo').onclick = () => { el.hidden = true; fn(); };
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; el.classList.remove('withbtn'); }, 6000);
+}
+
 Object.assign(actions, {
+  /* ثبت آماده با یک لمس: همان لحظه با تاریخ امروز ثبت می‌شود */
+  async tplgo(b) {
+    const t = (S.home.templates ?? []).find(x => x.id === Number(b.dataset.id)); if (!t || b.disabled) return;
+    b.disabled = true;
+    const tx = { kind: t.kind, amount: t.amount, accountId: t.accountId, toAccountId: t.toAccountId ?? null, categoryId: t.categoryId ?? null, personId: t.personId ?? null,
+      description: t.description ?? null, method: t.method ?? null, notes: null, date: today(), clientId: uuid() };
+    try {
+      const r = await api('/api/transactions', 'POST', tx);
+      done(t.name + ' ثبت شد');
+      await refresh();
+      toastUndo(`${t.name}: ${money(t.amount)} تومان ثبت شد.`, async () => {
+        try { await api('/api/transactions/' + r.id, 'DELETE'); toast('برگردانده شد.'); refresh(); }
+        catch (e) { e.auth ? showAuth(true) : toast(e.msg || 'برگردانده نشد.'); }
+      });
+    } catch (e) { b.disabled = false; e.auth ? showAuth(true) : toast(e.msg || 'ثبت نشد.'); }
+  },
   mask() { const on = !masked(); document.documentElement.classList.toggle('mask', on); store.set('mask', on); render(); },
   async swdel(b) {
     if (!confirm('این تراکنش حذف شود؟')) return closeSw();

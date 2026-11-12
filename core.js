@@ -75,10 +75,10 @@ const Core = (() => {
     if (m) { tail = m[0].replace(/\D/g, ''); cut(m); }
 
     let sign = null, word = null, value = null;
-    m = /(واریز|بستانکار|برداشت|بدهکار|خرید|پرداخت|کارمزد|انتقال|مبلغ)[^\d\n+\-]{0,25}([+\-]?)\s*(\d[\d,]*)\s*([+\-]?)(?!\d)/.exec(w);
+    m = /(واریز|بستانکار|برداشت|بدهکار|خرید|پرداخت|کارمزد|انتقال|مبلغ)[^\d\n+\-]{0,25}([+\-]?)[ \t]*(\d[\d,]*)[ \t]*([+\-]?)(?!\d)/.exec(w);
     if (m) { word = m[1]; value = num(m[3]); sign = m[2] + m[4]; cut(m); }
-    else if ((m = /(?<![\d,])([+\-])\s*(\d[\d,]{3,})/.exec(w))) { sign = m[1]; value = num(m[2]); cut(m); }
-    else if ((m = /(?<![\d,])(\d[\d,]{3,})\s*([+\-])(?!\d)/.exec(w))) { sign = m[2]; value = num(m[1]); cut(m); }
+    else if ((m = /(?<![\d,])([+\-])[ \t]*(\d[\d,]{3,})/.exec(w))) { sign = m[1]; value = num(m[2]); cut(m); }
+    else if ((m = /(?<![\d,])(\d[\d,]{3,})[ \t]*([+\-])(?!\d)/.exec(w))) { sign = m[2]; value = num(m[1]); cut(m); }
     if (!value || value <= 0) return null;
 
     let dir = null;
@@ -447,6 +447,13 @@ const Core = (() => {
     if (p.bank) { const h = banks.filter(a => a.bankName && normalize(a.bankName).includes(p.bank)); if (h.length === 1) return h[0].id; }
     return banks.length === 1 ? banks[0].id : null;
   }
+  function repairPending() {
+    for (const e of S.events) {
+      if (e.status !== 'pending' || !e.rawText) continue;
+      const p = parseSms(e.rawText, e.date);
+      if (p) { e.direction = p.direction; e.amount = p.amount; if (e.accountId == null) e.accountId = guessAccount(p); }
+    }
+  }
   function ingest(text, today) {
     if (String(text).length > 2000) throw bad('متن خیلی بلند است.');
     const p = parseSms(text, today);
@@ -604,6 +611,7 @@ const Core = (() => {
     if (!rec) throw bad('اطلاعاتی روی این گوشی نیست.');
     const o = await open(rec, password);
     S = upgrade(o.state); key = o.k; salt = o.sl;
+    repairPending();
   }
   function lock() { S = null; key = null; salt = null; }
   /* تغییر رمز: همه‌ی اطلاعات با کلید تازه ذخیره می‌شود؛ اگر ذخیره نشود رمز قبلی می‌ماند. */
@@ -729,7 +737,7 @@ const Core = (() => {
       const c = S.categories.find(x => x.id === id && !x.code); if (!c) throw bad('این دسته قابل حذف نیست.');
       c.archived = 1; audit('archive', 'category', id);
     });
-    if (p === '/api/bank-events') return pending();
+    if (p === '/api/bank-events') { repairPending(); return pending(); }
     if (p === '/api/bank-events/paste') return commit(() => ingest(body.text ?? '', todayJ()));
     if (p === '/api/bank-events/import') return commit(() => ingestFile(body.text ?? ''));
     if (p.endsWith('/resolve')) return commit(() => resolve(id, body));

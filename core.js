@@ -197,8 +197,8 @@ const Core = (() => {
       const last = evs[evs.length - 1];
       const ids = new Set(S.tx.filter(t => !t.deletedAt && t.date <= last.date).map(t => t.id));
       const app = a.openingBalance + S.entries.reduce((s, x) => x.accountId === a.id && ids.has(x.txId) ? s + x.amount : s, 0);
-      const waiting = S.events.some(e => e.status === 'pending' && (e.accountId === a.id || e.accountId == null) && e.date <= last.date);
-      out.push({ accountId: a.id, name: a.name, date: last.date, time: last.time ?? null, bank: last.balance, app, diff: last.balance - app, waiting });
+      const pend = S.events.filter(e => e.status === 'pending' && (e.accountId === a.id || e.accountId == null) && e.date <= last.date).length;
+      out.push({ accountId: a.id, name: a.name, date: last.date, time: last.time ?? null, bank: last.balance, app, diff: last.balance - app, waiting: pend > 0, pending: pend });
     }
     return out;
   }
@@ -510,6 +510,15 @@ const Core = (() => {
     if (!c) S.categories.push(c = { id: nextId(), name: 'کارمزد بانکی', type: 'expense', nature: 'pnl', code: null, archived: 0 });
     return c.id;
   }
+  /* صاف کردن اختلاف با بانک: کمتر بودن بانک = کارمزد بانکی، بیشتر بودن = سایر درآمدها */
+  function adjustBank(id, diff, date, description) {
+    const a = account(id); if (!a || a.kind !== 'bank' || a.archived) throw bad('حساب بانکی پیدا نشد.');
+    if (!Number.isSafeInteger(diff) || !diff || Math.abs(diff) > MAX) throw bad('اختلافی برای ثبت نیست.');
+    const income = S.categories.find(c => c.type === 'income' && c.nature === 'pnl' && !c.archived && c.name === 'سایر درآمدها')
+      ?? S.categories.find(c => c.type === 'income' && c.nature === 'pnl' && !c.archived);
+    const tx = diff < 0 ? { kind: 'expense', categoryId: feeCategory() } : { kind: 'income', categoryId: income?.id };
+    return { id: insertTx({ ...tx, amount: Math.abs(diff), accountId: id, date, description, personId: null, method: 'انتقال بانکی' }) };
+  }
   /* انتقال، مبلغ واریزشده را می‌گیرد و اختلاف، هزینه‌ی کارمزد از حساب مبدأ می‌شود. */
   function chargeFee(m, e) {
     if (e.direction === 'deposit') updateTx(m.id, { ...live(m.id), amount: e.amount });
@@ -721,6 +730,17 @@ const Core = (() => {
       S.accounts.push(a); audit('create', 'account', a.id, null, a); return { id: a.id };
     });
     if (p.startsWith('/api/accounts/') && p.endsWith('/statement')) return statement(id);
+    if (p.startsWith('/api/accounts/') && p.endsWith('/reconcile')) return commit(() => {
+      const a = account(id); if (!a) throw bad('حساب پیدا نشد.');
+      if (!Number.isSafeInteger(body?.balance) || Math.abs(body.balance) > MAX) throw bad('موجودی بانک را درست وارد کنید.');
+      return adjustBank(id, body.balance - balance(a), todayJ(), 'تطبیق با موجودی بانک');
+    });
+    if (p.startsWith('/api/accounts/') && p.endsWith('/fixcheck')) return commit(() => {
+      const c = balanceChecks().find(x => x.accountId === id);
+      if (!c || !c.diff) throw bad('اختلافی برای ثبت نیست.');
+      if (c.waiting) throw bad('اول پیامک‌های منتظر این حساب را تعیین تکلیف کنید.');
+      return adjustBank(id, c.diff, c.date, 'اختلاف با مانده‌ی پیامک بانک');
+    });
     if (p.startsWith('/api/accounts/')) return commit(() => {
       const a = account(id); if (!a) throw bad('حساب پیدا نشد.');
       if (method === 'PUT') { checkAccount(body); const before = { ...a }; Object.assign(a, { name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance }); audit('update', 'account', id, before, a); }

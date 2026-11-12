@@ -138,6 +138,8 @@ const queueRows = () => S.queue.map(q => txRow(q.tx, q.error ? 'err' : 'q')).joi
 function queueBanner() {
   const failed = S.queue.filter(q => q.error).length, waiting = S.queue.length - failed;
   let h = S.home.pending ? `<button class="banner bank" data-act="inbox">${fa(S.home.pending)} تراکنش بانکی منتظر تعیین تکلیف است.</button>` : '';
+  for (const c of S.home.checks ?? []) if (c.diff && c.waiting)
+    h += `<button class="banner" data-act="inbox">مانده‌ی ${esc(c.name)} ${money(Math.abs(c.diff))} تومان با پیامک بانک فرق دارد؛ ${fa(c.pending)} پیامک منتظر دارید. اول آن‌ها را تعیین تکلیف کنید.</button>`;
   for (const c of S.home.checks ?? []) if (c.diff && !c.waiting)
     h += `<button class="banner warn" data-act="stmt" data-id="${c.accountId}">مانده‌ی ${esc(c.name)} با پیامک بانک نمی‌خواند: اختلاف ${money(Math.abs(c.diff))} تومان. برای دیدن لمس کنید.</button>`;
   for (const b of S.home.budgets ?? [])
@@ -236,6 +238,7 @@ async function viewStmt() {
     <div class="big">${money(r.account.balance)} <span class="unit">تومان</span></div>
     <div class="row"><span>موجودی اولیه: ${money(r.opening)}</span></div></div>
   ${checkCard(r.check)}
+  ${r.account.kind === 'bank' ? `<button class="ghost" data-act="recon" data-id="${id}" data-b="${r.account.balance}">⚖️ تطبیق با موجودی بانک</button>` : ''}
   <button class="ghost" data-act="acc" data-id="${id}">ویرایش حساب</button>
   <h2>گردش حساب</h2>
   ${r.rows.length ? `<div class="list">${r.rows.map(t => txRow(t, null, id)).join('')}</div>` : '<div class="card empty">گردشی ثبت نشده است.</div>'}`;
@@ -361,13 +364,15 @@ async function exportCsv() {
 function checkCard(c) {
   if (!c) return '';
   const when = fa(c.date) + (c.time ? ' ساعت ' + fa(c.time) : '');
-  if (c.waiting) return '<div class="card hint">پیامک‌های منتظرِ این حساب را اول در صندوق تراکنش‌ها تعیین تکلیف کنید تا مانده کنترل شود.</div>';
+  if (c.waiting) return `<div class="card hint">${c.diff ? `<b class="neg">اختلاف ${money(Math.abs(c.diff))} تومان با مانده‌ی پیامک بانک</b><br>` : ''}${fa(c.pending)} پیامک منتظر برای این حساب هست؛ اول آن‌ها را در صندوق پیامک‌ها تعیین تکلیف کنید تا مانده کنترل شود.<button class="ghost" data-act="inbox">صندوق پیامک‌ها</button></div>`;
   if (!c.diff) return `<div class="card hint"><b class="pos">✓</b> با مانده‌ی آخرین پیامک بانک (${when}) یکی است.</div>`;
   return `<div class="card hint"><b class="neg">مانده با بانک نمی‌خواند</b><br>
     مانده در پیامک بانک (${when}): ${money(c.bank)} تومان<br>
     مانده‌ی برنامه در پایان همان روز: ${money(c.app)} تومان<br>
     اختلاف: ${money(c.diff)} تومان. ${c.diff > 0 ? 'برنامه کمتر از بانک است: شاید واریزی جا افتاده یا برداشتی دو بار ثبت شده.' : 'برنامه بیشتر از بانک است: شاید برداشت یا کارمزدی جا افتاده یا واریزی دو بار ثبت شده.'}
-    اگر از اول اختلاف بوده، موجودی اولیه‌ی حساب را بررسی کنید.</div>`;
+    اگر از اول اختلاف بوده، موجودی اولیه‌ی حساب را بررسی کنید.
+    <button class="primary" data-act="fixcheck" data-id="${c.accountId}">ثبت ${money(Math.abs(c.diff))} تومان به‌عنوان ${c.diff < 0 ? 'کارمزد بانکی' : 'سایر درآمدها'}</button>
+    <small class="hint">با تاریخ همان پیامک (${fa(c.date)}) ثبت می‌شود. اگر علت را می‌دانید (مثلاً ثبتی جا افتاده)، به‌جایش همان را درست کنید.</small></div>`;
 }
 
 function viewMore() {
@@ -942,6 +947,33 @@ function toastUndo(text, fn) {
 }
 
 Object.assign(actions, {
+  async fixcheck(b) {
+    if (!confirm(b.textContent.trim() + '؟')) return;
+    try { await api(`/api/accounts/${b.dataset.id}/fixcheck`, 'POST'); done('اختلاف صاف شد'); refresh(); }
+    catch (e) { e.auth ? showAuth(true) : toast(e.msg || 'ثبت نشد.'); }
+  },
+  recon(b) {
+    const id = Number(b.dataset.id), app = Number(b.dataset.b);
+    openSheet(`<form id="rcf" novalidate><div class="phead"><h1>تطبیق با موجودی بانک</h1><button type="button" class="x" data-act="close">بستن</button></div>
+      <p class="hint">موجودی فعلی را از همراه‌بانک یا اپ بانک بخوانید و این‌جا بنویسید. اختلاف، اگر بانک کمتر باشد «کارمزد بانکی» و اگر بیشتر باشد «سایر درآمدها» با تاریخ امروز ثبت می‌شود. کارمزدهایی که پیامک ندارند این‌طوری صاف می‌شوند.</p>
+      <div class="card"><small class="hint">موجودی در برنامه</small><div class="evamt amtx">${money(app)} <span class="unit">تومان</span></div></div>
+      <label for="rcb">موجودی واقعی بانک (تومان)</label><input id="rcb" class="amount" inputmode="numeric" autocomplete="off">
+      <div id="rcd" class="calc"></div>
+      <div class="err" id="rcerr" role="alert"></div><button class="primary">ثبت اختلاف</button></form>`);
+    const read = () => Number(digits($('#rcb').value));
+    $('#rcb').oninput = e => {
+      const dg = digits(e.target.value).replace(/^0+(?=\d)/, ''); e.target.value = dg ? fa(group(dg)) : '';
+      const df = read() - app;
+      $('#rcd').innerHTML = !dg ? '' : !df ? '✓ با بانک یکی است؛ اختلافی نیست.' : `اختلاف: <b class="${df < 0 ? 'neg' : 'pos'}">${df < 0 ? '−' : '+'}${money(Math.abs(df))}</b> تومان ← ${df < 0 ? 'کارمزد بانکی' : 'سایر درآمدها'}`;
+    };
+    $('#rcf').onsubmit = async e => {
+      e.preventDefault();
+      if (!digits($('#rcb').value)) return $('#rcerr').textContent = 'موجودی بانک را وارد کنید.';
+      try { await api(`/api/accounts/${id}/reconcile`, 'POST', { balance: read() }); closeSheet(); done('با بانک یکی شد'); refresh(); }
+      catch (x) { x.auth ? showAuth(true) : $('#rcerr').textContent = x.msg; }
+    };
+    $('#rcb').focus();
+  },
   /* ثبت آماده با یک لمس: همان لحظه با تاریخ امروز ثبت می‌شود */
   async tplgo(b) {
     const t = (S.home.templates ?? []).find(x => x.id === Number(b.dataset.id)); if (!t || b.disabled) return;

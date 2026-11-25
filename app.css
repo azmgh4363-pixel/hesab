@@ -613,3 +613,6 @@ ol.hint{padding-inline-start:20px}
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
 .field .eye:active{transform:translateY(-50%) scale(.92)}
+/* دسته‌ی خنثی */
+.amt.neu{color:var(--mute)}
+.chipsep{flex:0 0 100%;margin-top:6px}

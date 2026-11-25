@@ -8,6 +8,7 @@ const money = n => (n < 0 ? '−' : '') + fa(group(Math.abs(n)));
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const digits = v => en(v).replace(/\D/g, '');
 const KIND = { income: 'درآمد', expense: 'هزینه', transfer: 'انتقال' };
+const isNeutral = t => t.neutral ?? S.home?.categories.find(c => c.id === t.categoryId)?.nature === 'neutral';
 const personOpts = sel => '<option value="">—</option>' + (S.home?.people ?? []).map(p => `<option value="${p.id}" ${p.id === sel ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
 const catByCode = code => S.home.categories.find(c => c.code === code)?.id;
 /* کارهای حساب اشخاص: [برچسب، نوع، کد دسته] */
@@ -122,15 +123,15 @@ const ICON = {
 function txRow(t, queued, accId) {
   const into = t.kind === 'income' || (accId && t.kind === 'transfer' && t.toAccountId === accId);
   const out = t.kind === 'expense' || (accId && t.kind === 'transfer' && t.accountId === accId);
-  const sign = into ? 'pos' : out ? 'neg' : '';
+  const neu = isNeutral(t), sign = neu && !accId ? 'neu' : into ? 'pos' : out ? 'neg' : '';
   const acc = S.home.accounts, nameOf = id => acc.find(a => a.id === id)?.name ?? '';
   const cat = S.home.categories.find(c => c.id === t.categoryId)?.name;
   const title = t.description || t.categoryName || cat || KIND[t.kind];
   const sub = (t.kind === 'transfer' ? `${t.accountName ?? nameOf(t.accountId)} ← ${t.toAccountName ?? nameOf(t.toAccountId)}` : (t.accountName ?? nameOf(t.accountId)))
-    + (t.personName ? ' · ' + t.personName : '');
+    + (t.personName ? ' · ' + t.personName : '') + (neu ? ' · خنثی' : '');
   const data = queued ? `data-act="editq" data-id="${esc(t.clientId)}"` : `data-act="edit" data-id="${t.id}"`;
   const row = `<button class="item" ${data}>${txIcon(t)}<span class="t"><div>${esc(title)}${t.hasPhoto ? ' <span class="clip" aria-label="عکس دارد">📎</span>' : ''}${queued ? `<span class="tag">${queued === 'err' ? 'خطا' : 'در صف ارسال'}</span>` : ''}</div>
-    <small>${fa(t.date)} · ${esc(sub)}</small></span><span class="amt ${sign}">${out ? '−' : ''}${money(t.amount)}${t.balance !== undefined ? `<small>مانده: ${money(t.balance)}</small>` : ''}</span></button>`;
+    <small>${fa(t.date)} · ${esc(sub)}</small></span><span class="amt ${sign}">${out ? '−' : neu ? '+' : ''}${money(t.amount)}${t.balance !== undefined ? `<small>مانده: ${money(t.balance)}</small>` : ''}</span></button>`;
   return queued || !t.id ? row : `<div class="sw"><div class="swa"><button type="button" data-act="edit" data-id="${t.id}">ویرایش</button><button type="button" class="d" data-act="swdel" data-id="${t.id}">حذف</button></div>${row}</div>`;
 }
 const queueRows = () => S.queue.map(q => txRow(q.tx, q.error ? 'err' : 'q')).join('');
@@ -185,7 +186,7 @@ async function viewList() {
   $('#view').innerHTML = `<h1>تراکنش‌ها</h1>
   <input id="q" type="search" placeholder="جستجو در شرح و دسته" value="${esc(f.q)}" aria-label="جستجو">
   <select id="fa" aria-label="حساب"><option value="">همه‌ی حساب‌ها</option>${S.home.accounts.map(a => `<option value="${a.id}" ${String(a.id) === String(f.accountId ?? '') ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
-  <div class="chips">${[['', 'همه'], ['expense', 'هزینه'], ['income', 'درآمد'], ['transfer', 'انتقال']].map(([k, t]) => `<button class="chip ${(f.kind || '') === k ? 'on' : ''}" data-act="fkind" data-k="${k}">${t}</button>`).join('')}</div>
+  <div class="chips">${[['', 'همه'], ['expense', 'هزینه'], ['income', 'درآمد'], ['transfer', 'انتقال'], ['neutral', 'خنثی']].map(([k, t]) => `<button class="chip ${(f.kind || '') === k ? 'on' : ''}" data-act="fkind" data-k="${k}">${t}</button>`).join('')}</div>
   <div class="two"><div><label for="ff">از تاریخ</label>${dateInput('ff', esc(f.from), '۱۴۰۵/۰۸/۰۱')}</div>
   <div><label for="ft">تا تاریخ</label>${dateInput('ft', esc(f.to), '۱۴۰۵/۰۸/۳۰')}</div></div>
   <div id="rows" class="list mt"></div>
@@ -311,13 +312,14 @@ async function viewReport() {
   <p class="hint">برای تعیین یا برداشتن سقف ماهانه روی هر دسته بزنید.${r.refund ? ` برگشت وجه این ماه (${money(r.refund)}) از جمع هزینه کم شده است.` : ''}</p>
   ${exp ? `<div class="list">${exp}</div>` : '<div class="card empty">هزینه‌ای ثبت نشده است.</div>'}
   <h2>درآمد به تفکیک دسته</h2>
-  ${inc ? `<div class="list">${inc}</div>` : '<div class="card empty">درآمدی ثبت نشده است.</div>'}`;
+  ${inc ? `<div class="list">${inc}</div>` : '<div class="card empty">درآمدی ثبت نشده است.</div>'}
+  ${r.neutral?.length ? `<h2>خنثی</h2><p class="hint">در درآمد، هزینه و خالص حساب نشده است.</p><div class="list">${r.neutral.map(n => `<div class="item">${catIcon(n.name, 'neutral')}<span class="t grow"><div>${esc(n.name)}</div><small>ورودی ${money(n.in)} · خروجی ${money(n.out)}</small></span><span class="amt neu">${n.in < n.out ? '−' : ''}${money(Math.abs(n.in - n.out))}</span></div>`).join('')}</div>` : ''}`;
 }
 
 function recurringSheet() {
   const h = S.home, accs = h.accounts;
-  const catOpts = kind => h.categories.filter(c => c.type === kind && (c.nature === 'pnl' || ['loan_out', 'debt_out', 'loan_in', 'receivable_in'].includes(c.code)))
-    .map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const catOpts = kind => h.categories.filter(c => c.nature === 'neutral' || (c.type === kind && (c.nature === 'pnl' || ['loan_out', 'debt_out', 'loan_in', 'receivable_in'].includes(c.code))))
+    .map(c => `<option value="${c.id}">${esc(c.name)}${c.nature === 'neutral' ? ' (خنثی)' : ''}</option>`).join('');
   const list = (h.recurring ?? []).map(r => `<div class="item"><span class="t"><div>${esc(r.name)}</div><small>هر ماه روز ${fa(r.day)} · بعدی ${fa(r.next)}${r.left ? ` · ${fa(r.left)} دفعه مانده` : ''}</small></span>
     <span class="amt ${r.kind === 'income' ? 'pos' : 'neg'}">${money(r.amount)}</span><button type="button" class="chip" data-act="delrec" data-id="${r.id}">حذف</button></div>`).join('');
   openSheet(`<form id="rf2" novalidate><div class="phead"><h1>پرداخت‌ها و دریافت‌های ماهانه</h1><button type="button" class="x" data-act="close">بستن</button></div>
@@ -354,7 +356,7 @@ async function exportCsv() {
     if (!rows.length) return toast('موردی برای خروجی نیست.');
     const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
     const head = ['تاریخ', 'نوع', 'مبلغ (تومان)', 'حساب', 'به حساب', 'دسته', 'شخص', 'شرح', 'یادداشت', 'روش پرداخت'].map(q).join(',');
-    const lines = rows.slice().reverse().map(t => [q(`="${t.date}"`), q(KIND[t.kind]), t.kind === 'expense' ? -t.amount : t.amount,
+    const lines = rows.slice().reverse().map(t => [q(`="${t.date}"`), q(t.neutral ? 'خنثی' : KIND[t.kind]), t.kind === 'expense' ? -t.amount : t.amount,
       q(t.accountName), q(t.toAccountName), q(t.categoryName), q(t.personName), q(t.description), q(t.notes), q(t.method)].join(','));
     const name = `hesab-${today().replaceAll('/', '-')}.csv`;
     if (await saveFile(new File(['\uFEFF' + [head, ...lines].join('\r\n')], name, { type: 'text/csv' }))) toast(`خروجی ${fa(rows.length)} ردیف ساخته شد.`);
@@ -380,6 +382,7 @@ function viewMore() {
   $('#view').innerHTML = `<h1>بیشتر</h1>
   <h2>دسته‌های هزینه</h2><div class="chips">${cats('expense')}<button class="chip" data-act="addcat" data-t="expense">+ دسته‌ی تازه</button></div>
   <h2>دسته‌های درآمد</h2><div class="chips">${cats('income')}<button class="chip" data-act="addcat" data-t="income">+ دسته‌ی تازه</button></div>
+  <h2>دسته‌های خنثی</h2><p class="hint">موجودی حساب را کم و زیاد می‌کنند ولی در درآمد و هزینه حساب نمی‌شوند؛ مثل پول امانت یا خرید طلا.</p><div class="chips">${cats('neutral')}<button class="chip" data-act="addcat" data-t="neutral">+ دسته‌ی تازه</button></div>
   <h2>تراکنش‌های بانکی</h2><button class="ghost" data-act="inbox">صندوق پیامک‌های بانک</button>
   <h2>سبک ظاهر</h2><div class="skins">${SKINS.map(([k, n, , g]) => `<button class="skin ${(document.documentElement.dataset.skin || 'classic') === k ? 'on' : ''}" data-act="skin" data-k="${k}"><i style="background:${g}"></i>${n}</button>`).join('')}</div>
   <h2>رنگ برنامه</h2><p class="hint">رنگ نورها و دکمه‌ها در سبک‌های کلاسیک و شیشه‌ی مایع.</p><div class="chips">${ACCENTS.map(([k, n, c]) => `<button class="chip accent ${(document.documentElement.dataset.accent || 'blue') === k ? 'on' : ''}" data-act="accent" data-k="${k}"><i style="background:${c};color:${c}"></i>${n}</button>`).join('')}</div>
@@ -407,6 +410,7 @@ function txForm(kind, src, qid, preset) {
   const opts = sel => accs.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
   const toId = pre?.toAccountId ?? accs.find(a => a.id !== accId)?.id;
   const cats = S.home.categories.filter(c => c.type === kind && (c.nature === 'pnl' || c.id === pre?.categoryId));
+  const neutrals = S.home.categories.filter(c => c.nature === 'neutral');
   const catId = pre?.categoryId ?? null;
   const date = src?.date ?? today();
   const editing = !!src;
@@ -418,7 +422,7 @@ function txForm(kind, src, qid, preset) {
     <div class="chips ops"><button type="button" class="chip" data-act="zeros">۰۰۰+</button>${['+', '−', '×', '÷', '='].map(o => `<button type="button" class="chip op" data-act="op" data-o="${o}">${o}</button>`).join('')}</div>
     ${kind === 'transfer' ? `<label for="acc">از حساب</label><select id="acc">${opts(accId)}</select>
       <label for="to">به حساب</label><select id="to">${opts(toId)}</select>`
-      : `<label>دسته</label><div class="chips" id="cats">${cats.map(c => `<button type="button" class="chip ${c.id === catId ? 'on' : ''}" data-act="cat" data-id="${c.id}">${catEmoji(c.name, kind)} ${esc(c.name)}</button>`).join('')}</div>
+      : `<label>دسته</label><div class="chips" id="cats">${cats.map(c => `<button type="button" class="chip ${c.id === catId ? 'on' : ''}" data-act="cat" data-id="${c.id}">${catEmoji(c.name, kind)} ${esc(c.name)}</button>`).join('')}${neutrals.length ? `<small class="hint chipsep">خنثی (در درآمد و هزینه حساب نمی‌شود)</small>${neutrals.map(c => `<button type="button" class="chip ${c.id === catId ? 'on' : ''}" data-act="cat" data-id="${c.id}">${catEmoji(c.name, 'neutral')} ${esc(c.name)}</button>`).join('')}` : ''}</div>
       <label for="acc">حساب</label><select id="acc">${opts(accId)}</select>`}
     <label for="date">تاریخ</label>${dateInput('date', fa(date))}
     <div class="chips"><button type="button" class="chip" data-act="setdate" data-d="t">امروز</button><button type="button" class="chip" data-act="setdate" data-d="y">دیروز</button></div>
@@ -757,14 +761,14 @@ const CAT_WORDS = [[/خرید|سوپر|بقال|میوه|هایپر/, '🛒'], [
 function catEmoji(name, kind) {
   if (CAT_EMOJI[name]) return CAT_EMOJI[name];
   for (const [re, e] of CAT_WORDS) if (re.test(name ?? '')) return e;
-  return kind === 'income' ? '💰' : '🧾';
+  return kind === 'neutral' ? '⚖️' : kind === 'income' ? '💰' : '🧾';
 }
 const hue = s => { let h = 7; for (const ch of String(s ?? '')) h = (h * 31 + ch.codePointAt(0)) % 360; return h; };
 const catIcon = (name, kind) => `<i class="ci" style="--h:${hue(name)}" aria-hidden="true">${catEmoji(name, kind)}</i>`;
 function txIcon(t) {
   if (t.kind === 'transfer') return '<i class="ci tr" style="--h:205" aria-hidden="true">⇄</i>';
   const c = S.home?.categories.find(x => x.id === t.categoryId);
-  return catIcon(c?.name ?? t.categoryName, t.kind);
+  return catIcon(c?.name ?? t.categoryName, isNeutral(t) ? 'neutral' : t.kind);
 }
 
 /* ---------- نمودار دایره‌ای و روند ---------- */
@@ -823,7 +827,7 @@ function byDay(rows, fn) {
   let out = '', cur = null, chunk = [];
   const flush = () => {
     if (!chunk.length) return;
-    const sum = k => chunk.filter(t => t.kind === k).reduce((s, t) => s + t.amount, 0), inc = sum('income'), ex = sum('expense');
+    const sum = k => chunk.filter(t => t.kind === k && !isNeutral(t)).reduce((s, t) => s + t.amount, 0), inc = sum('income'), ex = sum('expense');
     out += `<div class="dayhead"><b>${dayLabel(cur)}</b><small>${inc ? `<span class="pos">+${money(inc)}</span>` : ''}${ex ? `<span class="neg">−${money(ex)}</span>` : ''}</small></div>` + chunk.map(fn).join('');
     chunk = [];
   };

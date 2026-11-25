@@ -47,7 +47,7 @@ const Core = (() => {
     if (!s || sensitive(s)) return null;
     let w = s;
     const cut = m => { w = w.slice(0, m.index) + ' ' + w.slice(m.index + m[0].length); };
-    let date = today, time = null, m = /(?<!\d)(\d{2,4})[/\-](\d{1,2})[/\-](\d{1,2})(?![\d:])/.exec(w);
+    let date = today, time = null, m = /(?:(?<=\d:\d{2})\s*[-_]\s*)?(?<!\d)(\d{2,4})[/\-](\d{1,2})[/\-](\d{1,2})(?![\d:])(?:\s*[-_]\s*(?=\d{1,2}:\d{2}))?/.exec(w); // خط بین تاریخ و ساعت علامت مبلغ نیست
     if (m) {
       const y = m[1].length === 4 ? m[1] : '14' + m[1].padStart(2, '0').slice(-2);
       date = `${y}/${m[2].padStart(2, '0')}/${m[3].padStart(2, '0')}`;
@@ -126,7 +126,7 @@ const Core = (() => {
     if (t.kind === 'transfer') {
       if (!account(t.toAccountId)) throw bad('حساب مقصد را انتخاب کنید.');
       if (t.toAccountId === t.accountId) throw bad('حساب مبدأ و مقصد نباید یکی باشند.');
-    } else if (!S.categories.some(c => c.id === t.categoryId && c.type === t.kind)) throw bad('دسته را انتخاب کنید.');
+    } else if (!S.categories.some(c => c.id === t.categoryId && (c.type === t.kind || c.type === 'neutral'))) throw bad('دسته را انتخاب کنید.');
     if (t.kind !== 'transfer' && t.personId != null && !person(t.personId)) throw bad('شخص پیدا نشد.');
   }
   /* هر تراکنش ردیف‌های با جمع صفر می‌سازد. انتقال دو ردیف حساب دارد و به درآمد و هزینه نمی‌رسد. */
@@ -167,15 +167,17 @@ const Core = (() => {
     audit('delete', 'transaction', id, before, null);
   }
   const balance = a => a.openingBalance + S.entries.reduce((s, e) => e.accountId === a.id ? s + e.amount : s, 0);
+  /* دسته‌ی خنثی: موجودی حساب را عوض می‌کند ولی درآمد یا هزینه نیست؛ یک دسته برای ورودی و خروجی. */
+  const neutralCat = id => S.categories.some(c => c.id === id && c.nature === 'neutral');
   function txRows({ q, kind, accountId, personId, from, to } = {}, limit = 100) {
     accountId = Number(accountId) || null; personId = Number(personId) || null;
     const cat = id => S.categories.find(c => c.id === id)?.name ?? null, name = id => account(id)?.name ?? null, pname = id => person(id)?.name ?? null;
-    const text = q?.trim();
-    return S.tx.filter(t => !t.deletedAt && (!kind || t.kind === kind) && (!accountId || t.accountId === accountId || t.toAccountId === accountId)
+    const text = q?.trim(), neutral = t => neutralCat(t.categoryId), ofKind = t => kind === 'neutral' ? neutral(t) : t.kind === kind && !neutral(t);
+    return S.tx.filter(t => !t.deletedAt && (!kind || ofKind(t)) && (!accountId || t.accountId === accountId || t.toAccountId === accountId)
       && (!personId || t.personId === personId) && (!from || t.date >= from) && (!to || t.date <= to)
       && (!text || `${t.description ?? ''} ${t.notes ?? ''} ${cat(t.categoryId) ?? ''} ${pname(t.personId) ?? ''}`.includes(text)))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, limit)
-      .map(t => ({ ...t, accountName: name(t.accountId), toAccountName: name(t.toAccountId), categoryName: cat(t.categoryId), personName: pname(t.personId), hasPhoto: !!S.photos[t.id] }));
+      .map(t => ({ ...t, accountName: name(t.accountId), toAccountName: name(t.toAccountId), categoryName: cat(t.categoryId), personName: pname(t.personId), neutral: neutral(t), hasPhoto: !!S.photos[t.id] }));
   }
   /* صورت‌حساب یک حساب: قدیمی به جدید جمع می‌شود و جدید به قدیمی نمایش داده می‌شود. */
   function statement(id) {
@@ -258,14 +260,18 @@ const Core = (() => {
 
   /* ---------- گزارش ماهانه و سقف خرج ---------- */
   function monthTotals(ym, maxDay) { // maxDay: فقط تا همان روز ماه
-    const by = new Map(); let income = 0, expense = 0, refund = 0;
+    const by = new Map(), neutral = new Map(); let income = 0, expense = 0, refund = 0;
     for (const t of S.tx) {
       if (t.deletedAt || t.kind === 'transfer' || t.date.slice(0, 7) !== ym || (maxDay && t.date.slice(8) > maxDay)) continue;
       const c = S.categories.find(x => x.id === t.categoryId);
       if (c?.nature === 'pnl') { by.set(c.id, (by.get(c.id) ?? 0) + t.amount); if (t.kind === 'income') income += t.amount; else expense += t.amount; }
       else if (c?.nature === 'refund') refund += t.amount;
+      else if (c?.nature === 'neutral') {
+        const n = neutral.get(c.id) ?? { id: c.id, name: c.name, in: 0, out: 0 };
+        n[t.kind === 'income' ? 'in' : 'out'] += t.amount; neutral.set(c.id, n);
+      }
     }
-    return { income, expense: expense - refund, refund, by };
+    return { income, expense: expense - refund, refund, by, neutral: [...neutral.values()] };
   }
   const prevMonth = ym => { let [y, m] = ym.split('/').map(Number); if (--m < 1) { m = 12; y--; } return `${y}/${String(m).padStart(2, '0')}`; };
   /* روند ۶ ماهه: قدیمی‌ترین ماه اول */
@@ -401,7 +407,7 @@ const Core = (() => {
       .map(c => ({ id: c.id, name: c.name, amount: cur.by.get(c.id) ?? 0, prev: prev.by.get(c.id) ?? 0, budget: c.budget ?? null, archived: c.archived }))
       .filter(r => r.amount || r.prev || (r.budget && !r.archived)).sort((a, b) => b.amount - a.amount || b.prev - a.prev);
     return { month: ym, prevMonth: prevMonth(ym), income: cur.income, expense: cur.expense, refund: cur.refund,
-      prevIncome: prev.income, prevExpense: prev.expense, expenses: rows('expense'), incomes: rows('income'), trend: trend(ym), ...monthStats(ym) };
+      prevIncome: prev.income, prevExpense: prev.expense, expenses: rows('expense'), incomes: rows('income'), neutral: cur.neutral, trend: trend(ym), ...monthStats(ym) };
   }
   /* خرج هر روز ماه و آمار جمع‌بندی ماه */
   function monthStats(ym) {
@@ -535,6 +541,10 @@ const Core = (() => {
     }
     const kind = dep ? 'income' : 'expense';
     if (x.purpose === kind) return { ...base, kind, accountId: acc, categoryId: x.categoryId };
+    if (x.purpose === 'neutral') {
+      if (!neutralCat(x.categoryId)) throw bad('دسته‌ی خنثی را انتخاب کنید.');
+      return { ...base, kind, accountId: acc, categoryId: x.categoryId };
+    }
     const code = (dep ? DEP : WD)[x.purpose];
     if (!code) throw bad('نوع انتخاب‌شده با این تراکنش جور نیست.');
     return { ...base, kind, accountId: acc, categoryId: S.categories.find(c => c.code === code).id };
@@ -639,6 +649,8 @@ const Core = (() => {
     chain = p.catch(() => { });
     return p;
   }
+  /* فقط درست بودن رمز را می‌سنجد و چیزی را عوض نمی‌کند. */
+  async function checkPassword(password) { await open(await storage.get(RECORD), password); }
   async function exportBackup() {
     await commit(() => { S.lastBackup = Date.now(); });
     return JSON.stringify(await seal());
@@ -670,6 +682,18 @@ const Core = (() => {
       if (body.recurringId && !r.duplicate && S.recurring.some(x => x.id === body.recurringId)) advance(body.recurringId);
       return r;
     });
+    /* زمان شروع آزمایش و آخرین زمان دیده‌شده (نسخه‌ی اندروید)؛ شروع فقط جلوتر نمی‌رود و زمان فقط عقب نمی‌رود. */
+    if (p === '/api/trial') return commit(() => {
+      const ok = v => Number.isSafeInteger(v) && v > 0;
+      if (!ok(body?.start) || !ok(body?.seen)) throw bad('زمان نامعتبر است.');
+      S.trial = { start: Math.min(body.start, S.trial?.start ?? Infinity), seen: Math.max(body.seen, S.trial?.seen ?? 0) };
+    });
+    if (p === '/api/license') return commit(() => {
+      const { device, code, seen } = body ?? {};
+      if (!/^[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/.test(device ?? '') || !(code == null || (typeof code === 'string' && code.length <= 2000)) || !Number.isSafeInteger(seen)) throw bad('مجوز نامعتبر است.');
+      S.lic = { device, code: code ?? null, seen };
+    });
+    if (p === '/api/backup-cancelled') return commit(() => { S.lastBackup = Number.isSafeInteger(body?.lastBackup) ? body.lastBackup : null; });
     if (p === '/api/report') return report(url.searchParams.get('month'));
     if (p === '/api/people') return commit(() => {
       checkPerson(body);
@@ -748,8 +772,8 @@ const Core = (() => {
     });
     if (p === '/api/categories') return commit(() => {
       if (!body.name?.trim()) throw bad('نام دسته را وارد کنید.');
-      if (!['income', 'expense'].includes(body.type)) throw bad('نوع دسته نامعتبر است.');
-      const c = { id: nextId(), name: body.name.trim(), type: body.type, nature: 'pnl', code: null, archived: 0 };
+      if (!['income', 'expense', 'neutral'].includes(body.type)) throw bad('نوع دسته نامعتبر است.');
+      const c = { id: nextId(), name: body.name.trim(), type: body.type, nature: body.type === 'neutral' ? 'neutral' : 'pnl', code: null, archived: 0 };
       S.categories.push(c); audit('create', 'category', c.id, null, c); return { id: c.id };
     });
     if (p.startsWith('/api/categories/') && p.endsWith('/budget')) return commit(() => setBudget(id, body.budget ?? null));
@@ -768,6 +792,6 @@ const Core = (() => {
     throw bad('درخواست نامعتبر است.');
   }
 
-  return { handle, lock, changePassword, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
+  return { handle, lock, changePassword, checkPassword, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
 })();
 if (typeof module !== 'undefined') module.exports = Core;

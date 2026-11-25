@@ -367,6 +367,7 @@ function checkCard(c) {
   if (!c) return '';
   const when = fa(c.date) + (c.time ? ' ساعت ' + fa(c.time) : '');
   if (c.waiting) return `<div class="card hint">${c.diff ? `<b class="neg">اختلاف ${money(Math.abs(c.diff))} تومان با مانده‌ی پیامک بانک</b><br>` : ''}${fa(c.pending)} پیامک منتظر برای این حساب هست؛ اول آن‌ها را در صندوق پیامک‌ها تعیین تکلیف کنید تا مانده کنترل شود.<button class="ghost" data-act="inbox">صندوق پیامک‌ها</button></div>`;
+  if (c.unknown) return `<div class="card hint">ترتیب پیامک‌های ${fa(c.date)} معلوم نیست (شاید پیامکی جا افتاده)؛ مانده‌ی این حساب با پیامک کنترل نشد. با موجودی همراه‌بانک مقایسه کنید.</div>`;
   if (!c.diff) return `<div class="card hint"><b class="pos">✓</b> با مانده‌ی آخرین پیامک بانک (${when}) یکی است.</div>`;
   return `<div class="card hint"><b class="neg">مانده با بانک نمی‌خواند</b><br>
     مانده در پیامک بانک (${when}): ${money(c.bank)} تومان<br>
@@ -395,7 +396,8 @@ function viewMore() {
   <h2>پشتیبان</h2><div class="card hint">اطلاعات فقط روی همین گوشی است. فایل پشتیبان را در iCloud Drive یا جای امن دیگری نگه دارید. آخرین پشتیبان: ${S.home.lastBackup ? fa(new Date(S.home.lastBackup).toLocaleDateString('fa-IR')) : 'هنوز گرفته نشده'}</div>
   <button class="ghost" data-act="backup">گرفتن پشتیبان</button><button class="ghost" data-act="restore">بازیابی از فایل</button>
   <h2>امنیت</h2><button class="ghost" data-act="chpass">تغییر رمز</button>
-  <button class="ghost danger" data-act="logout">قفل برنامه</button>`;
+  <button class="ghost danger" data-act="logout">قفل برنامه</button>
+  ${window.HesabAndroid ? '' : `<h2>نسخه</h2><button class="ghost" data-act="checkupd">نسخه‌ی ${fa(VERSION.slice(1))} · بررسی نسخه‌ی تازه</button>`}`;
 }
 
 function openSheet(html) { const s = $('#sheet'); s.innerHTML = `<div class="panel">${html}</div>`; s.hidden = false; }
@@ -1316,8 +1318,39 @@ Object.assign(actions, {
   year(b) { showYear(b.dataset.y); },
 });
 
+/* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
+const VERSION = 'v21';
+const Upd = { reg: null, go: false, at: 0 };
+function showUpdate() {
+  if ($('#upd')) return;
+  document.body.insertAdjacentHTML('beforeend', '<button id="upd" data-act="update">نسخه‌ی تازه آماده است؛ برای به‌روزرسانی بزنید</button>');
+}
+async function watchUpdate() {
+  if (window.HesabAndroid || !('serviceWorker' in navigator) || !isSecureContext) return;
+  const sw = navigator.serviceWorker;
+  sw.addEventListener('controllerchange', () => { if (Upd.go) location.reload(); });
+  try {
+    const reg = Upd.reg = await sw.register('sw.js', { updateViaCache: 'none' });
+    const ready = () => { if (reg.waiting && sw.controller) showUpdate(); };
+    const follow = w => w?.addEventListener('statechange', ready);
+    reg.addEventListener('updatefound', () => follow(reg.installing));
+    follow(reg.installing); ready();
+    Upd.at = Date.now();
+  } catch { }
+}
+/* هر بار برگشتن به برنامه، حداکثر هر ۱۵ دقیقه */
+function checkUpdate(now) {
+  if (!Upd.reg || (!now && Date.now() - Upd.at < 15 * 60e3)) return;
+  Upd.at = Date.now();
+  return Upd.reg.update().catch(() => { });
+}
+Object.assign(actions, {
+  update(b) { const w = Upd.reg?.waiting; if (!w) return location.reload(); Upd.go = true; b.disabled = true; b.textContent = 'در حال به‌روزرسانی…'; w.postMessage('update'); },
+  async checkupd() { toast('در حال بررسی…'); await checkUpdate(true); setTimeout(() => { if (!$('#upd')) toast(Upd.reg?.installing ? 'نسخه‌ی تازه در حال دریافت است.' : 'نسخه‌ی تازه‌ای نیست.'); }, 2500); },
+});
+
 async function boot() {
-  if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => { });
+  watchUpdate();
   try {
     const st = await api('/api/auth/state');
     if (!st.hasUser) return showAuth(false);
@@ -1330,6 +1363,7 @@ async function boot() {
 }
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkUpdate();
   if (document.hidden) hiddenAt = Date.now();
   else if (S.home && Date.now() - hiddenAt > 5 * 60e3) { Core.lock(); S.home = null; showAuth(true); } // قفل خودکار بعد از ۵ دقیقه
 });

@@ -189,6 +189,33 @@ const Core = (() => {
     }).reverse();
     return { account: { ...a, balance: run }, opening: a.openingBalance, rows, check: balanceChecks().find(c => c.accountId === id) ?? null };
   }
+  /* مانده‌ی پایانی چند پیامک از روی خودشان: هر پیامک از «مانده‌ی قبل» به «مانده» می‌رود و باید همه یک مسیر پیوسته بسازند.
+     start: مانده‌ی پایان روز قبل، فقط وقتی مسیر به جای اولش برمی‌گردد. null = معلوم نیست. */
+  function trailEnd(evs, start) {
+    const deg = new Map(), up = new Map(), root = x => { while (up.get(x) !== x) x = up.get(x); return x; };
+    const add = (x, d) => { deg.set(x, (deg.get(x) ?? 0) + d); if (!up.has(x)) up.set(x, x); };
+    for (const e of evs) {
+      const before = e.balance + (e.direction === 'deposit' ? -e.amount : e.amount);
+      add(before, -1); add(e.balance, 1); up.set(root(before), root(e.balance));
+    }
+    if (new Set([...up.keys()].map(root)).size !== 1) return null; // پیامکی جا افتاده است
+    const odd = [...deg].filter(([, d]) => d);
+    if (!odd.length) return start != null && deg.has(start) ? start : null;
+    if (odd.length !== 2 || odd.some(([, d]) => Math.abs(d) !== 1)) return null;
+    return odd.find(([, d]) => d === 1)[0];
+  }
+  /* مانده‌ی پایان آخرین روز پیامک‌ها؛ ترتیب رسیدن ملاک نیست. null = ترتیب معلوم نیست. */
+  function closingBalance(evs) {
+    let end = null;
+    for (const date of [...new Set(evs.map(e => e.date))].sort()) {
+      const day = evs.filter(e => e.date === date), prev = end;
+      end = trailEnd(day, prev);
+      if (end != null) continue;
+      const top = day.reduce((m, e) => (e.time ?? '') > m ? e.time : m, ''), last = day.filter(e => !e.time || e.time === top);
+      end = last.length === 1 ? last[0].balance : trailEnd(last, last.length === day.length ? prev : null);
+    }
+    return end;
+  }
   /* کنترل مانده: مانده‌ی آخرین پیامکِ تعیین‌تکلیف‌شده باید با مانده‌ی برنامه در پایان همان روز یکی باشد. */
   function balanceChecks() {
     const out = [];
@@ -196,11 +223,11 @@ const Core = (() => {
       const evs = S.events.filter(e => e.accountId === a.id && e.balance != null && e.status !== 'pending')
         .sort((x, y) => x.date.localeCompare(y.date) || (x.time ?? '').localeCompare(y.time ?? '') || x.id - y.id);
       if (!evs.length) continue;
-      const last = evs[evs.length - 1];
+      const bank = closingBalance(evs), last = evs.filter(e => e.date === evs[evs.length - 1].date && (bank == null || e.balance === bank)).pop();
       const ids = new Set(S.tx.filter(t => !t.deletedAt && t.date <= last.date).map(t => t.id));
       const app = a.openingBalance + S.entries.reduce((s, x) => x.accountId === a.id && ids.has(x.txId) ? s + x.amount : s, 0);
       const pend = S.events.filter(e => e.status === 'pending' && (e.accountId === a.id || e.accountId == null) && e.date <= last.date).length;
-      out.push({ accountId: a.id, name: a.name, date: last.date, time: last.time ?? null, bank: last.balance, app, diff: last.balance - app, waiting: pend > 0, pending: pend });
+      out.push({ accountId: a.id, name: a.name, date: last.date, time: last.time ?? null, bank, app, diff: bank == null ? 0 : bank - app, unknown: bank == null, waiting: pend > 0, pending: pend });
     }
     return out;
   }

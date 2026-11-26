@@ -82,7 +82,7 @@ function render() {
   if (entering) { v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); clearTimeout(S.enterTimer); S.enterTimer = setTimeout(() => v.classList.remove('enter'), 1400); }
   ({ home: viewHome, list: viewList, accounts: viewAccounts, stmt: viewStmt, person: viewPerson, report: viewReport, more: viewMore, inbox: viewInbox })[S.view]();
   moveTabInd();
-  if (S.view === 'home') { const tot = S.home.cash + S.home.bank; if (entering) countUp(0); else if (S.shownTotal != null && S.shownTotal !== tot) countUp(S.shownTotal); S.shownTotal = tot; }
+  if (S.view === 'home') { const ht = homeTotals(S.home), tot = ht.cash + ht.bank; if (entering) countUp(0); else if (S.shownTotal != null && S.shownTotal !== tot) countUp(S.shownTotal); S.shownTotal = tot; }
 }
 
 /* نشانگر نوار پایین زیر تب فعال سُر می‌خورد */
@@ -151,12 +151,16 @@ function queueBanner() {
   return h;
 }
 
+/* موجودی خانه با یا بدون حساب‌های کسب‌وکار (انتخاب روی همین گوشی می‌ماند) */
+const noBiz = () => !!S.home?.hasBusiness && store.get('noBiz', false);
+const homeTotals = h => noBiz() ? h.personal : h;
 function viewHome() {
-  const h = S.home;
+  const h = S.home, t = homeTotals(h);
   $('#view').innerHTML = `
-  <div class="card hero"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button><div class="lbl">کل موجودی</div>
-    <div class="big" data-count="${h.cash + h.bank}">${money(h.cash + h.bank)} <span class="unit">تومان</span></div>
-    <div class="row"><span>نقد: ${money(h.cash)}</span><span>بانک: ${money(h.bank)}</span></div>${spark(h.series)}</div>
+  <div class="card hero"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button><div class="lbl">کل موجودی${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
+    <div class="big" data-count="${t.cash + t.bank}">${money(t.cash + t.bank)} <span class="unit">تومان</span></div>
+    <div class="row"><span>نقد: ${money(t.cash)}</span><span>بانک: ${money(t.bank)}</span></div>
+    ${h.hasBusiness ? `<div class="spk bizk"><span></span><span><button type="button" class="${noBiz() ? '' : 'on'}" data-act="biz" data-v="0">همه</button><button type="button" class="${noBiz() ? 'on' : ''}" data-act="biz" data-v="1">بدون کسب‌وکار</button></span></div>` : ''}${spark(t.series)}</div>
   ${queueBanner()}
   <button class="ghost" data-act="paste">چسباندن پیامک بانک</button>
   <button class="ghost" data-act="smsfile">خواندن فایل پیامک‌ها</button>
@@ -515,13 +519,15 @@ function accForm(a) {
     <label for="ab">نام بانک</label><input id="ab" value="${esc(a?.bankName)}">
     <label for="au">شماره حساب (اختیاری)</label><input id="au" inputmode="numeric" class="date" value="${esc(a?.accountNumber)}">
     <label for="ao">موجودی اولیه (تومان)</label><input id="ao" inputmode="numeric" class="date" value="${a ? fa(group(Math.abs(a.openingBalance))) : ''}">
+    <label class="chk"><input type="checkbox" id="abz" ${a?.business ? 'checked' : ''}> این حساب مال کسب‌وکار است</label>
+    <p class="hint">در صفحه‌ی خانه می‌توانید موجودی را بدون حساب‌های کسب‌وکار ببینید.</p>
     <div class="err" id="err" role="alert"></div><button class="primary">ذخیره</button>
     ${a ? `<button type="button" class="ghost danger" data-act="archive" data-id="${a.id}">بایگانی حساب</button>` : ''}</form>`);
   $('#ao').oninput = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
   $('#af').onsubmit = async e => {
     e.preventDefault();
     const sign = a && a.openingBalance < 0 ? -1 : 1;
-    const body = { name: $('#an').value, kind: $('#ak').value, bankName: $('#ab').value.trim() || null, accountNumber: en($('#au').value).trim() || null, openingBalance: sign * Number(digits($('#ao').value)) };
+    const body = { name: $('#an').value, kind: $('#ak').value, bankName: $('#ab').value.trim() || null, accountNumber: en($('#au').value).trim() || null, openingBalance: sign * Number(digits($('#ao').value)), business: $('#abz').checked };
     try { await api('/api/accounts' + (a ? '/' + a.id : ''), a ? 'PUT' : 'POST', body); closeSheet(); toast('ذخیره شد.'); refresh(); }
     catch (x) { x.auth ? showAuth(true) : $('#err').textContent = x.msg; }
   };
@@ -1229,7 +1235,7 @@ function bankCard(a) {
   const num = en(a.accountNumber || '').replace(/\D/g, '').slice(-4);
   return `<button class="bcard ${a.kind}" data-act="stmt" data-id="${a.id}" style="--c1:${c1};--c2:${c2}">
     <span class="bt"><b>${a.kind === 'bank' ? esc(a.bankName || 'بانک') : 'نقد'}</b>${a.kind === 'bank' ? '<i class="chipg" aria-hidden="true"></i>' : '<i class="wal" aria-hidden="true">👛</i>'}</span>
-    <span class="bn">${esc(a.name)}</span>
+    <span class="bn">${esc(a.name)}${a.business ? ' <small class="bizt">کسب‌وکار</small>' : ''}</span>
     <span class="bal ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)} <small>تومان</small></span>
     <span class="bno">${num ? '•••• ' + fa(num) : a.kind === 'cash' ? 'کیف پول' : ''}</span></button>`;
 }
@@ -1300,6 +1306,7 @@ Object.assign(actions, {
     f.classList.toggle('open', open); b.setAttribute('aria-expanded', String(open));
   },
   spark(b) { store.set('sparkN', Number(b.dataset.n)); render(); },
+  biz(b) { store.set('noBiz', b.dataset.v === '1'); render(); },
   async subadd(b) {
     const x = (S.home.subs ?? []).find(s => s.key === b.dataset.k); if (!x) return;
     try { await api('/api/recurring', 'POST', { name: x.name, kind: 'expense', amount: x.amount, categoryId: x.categoryId, accountId: x.accountId, personId: null, next: x.next, left: null });
@@ -1319,7 +1326,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v22';
+const VERSION = 'v23';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

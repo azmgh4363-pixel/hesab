@@ -346,10 +346,10 @@ const Core = (() => {
     return { current: cur, best };
   }
   /* موجودی کل در پایان هر روز (قدیمی اول) */
-  function series(today, n = 90) {
+  function series(today, n = 90, only = null) { // only: مجموعه‌ی شناسه‌ی حساب‌هایی که جمع زده می‌شوند
     const txDate = new Map(S.tx.filter(t => !t.deletedAt).map(t => [t.id, t.date])), byDate = new Map();
-    for (const e of S.entries) if (e.accountId != null) { const dt = txDate.get(e.txId); if (dt) byDate.set(dt, (byDate.get(dt) ?? 0) + e.amount); }
-    let total = S.accounts.reduce((s, a) => s + balance(a), 0);
+    for (const e of S.entries) if (e.accountId != null && (!only || only.has(e.accountId))) { const dt = txDate.get(e.txId); if (dt) byDate.set(dt, (byDate.get(dt) ?? 0) + e.amount); }
+    let total = S.accounts.filter(a => !only || only.has(a.id)).reduce((s, a) => s + balance(a), 0);
     for (const [dt, v] of byDate) if (dt > today) total -= v;
     const out = []; let dt = today;
     for (let i = 0; i < n; i++) { out.unshift({ date: dt, total }); total -= byDate.get(dt) ?? 0; dt = addDay(dt, -1); }
@@ -460,13 +460,15 @@ const Core = (() => {
     const income = mt.income, expense = mt.expense, list = accounts();
     const budgets = S.categories.filter(c => c.budget && !c.archived).map(c => ({ id: c.id, name: c.name, budget: c.budget, spent: mt.by.get(c.id) ?? 0 }))
       .filter(b => b.spent >= b.budget * 0.8);
-    const total = k => list.filter(a => a.kind === k).reduce((s, a) => s + a.balance, 0);
+    const total = (k, personal) => list.filter(a => a.kind === k && (!personal || !a.business)).reduce((s, a) => s + a.balance, 0);
+    /* «بدون کسب‌وکار»: حساب‌هایی که تیک کسب‌وکار ندارند (بایگانی‌شده‌ها هم، تا نمودار با جمع بخواند) */
+    const hasBusiness = list.some(a => a.business), mine = new Set(S.accounts.filter(a => !a.business).map(a => a.id));
     const live = S.tx.some(t => !t.deletedAt);
     const backupDue = live && (!S.lastBackup || Date.now() - S.lastBackup > 7 * 864e5);
     return { today, cash: total('cash'), bank: total('bank'), income, expense, net: income - expense, backupDue, lastBackup: S.lastBackup,
       pending: S.events.filter(e => e.status === 'pending').length, accounts: list, categories: categories(), recent: txRows({}, 8), checks: balanceChecks(),
       people: people(), templates: S.templates, recurring: S.recurring, due: dueList(today), budgets,
-      series: series(today), subs: subs(today), badges: badges(today, noSpend(today)),
+      series: series(today), hasBusiness, personal: hasBusiness ? { cash: total('cash', true), bank: total('bank', true), series: series(today, 90, mine) } : null, subs: subs(today), badges: badges(today, noSpend(today)),
       noSpend: noSpend(today), budgetAll: S.categories.filter(c => c.budget && !c.archived).map(c => ({ id: c.id, name: c.name, budget: c.budget, spent: mt.by.get(c.id) ?? 0 })),
       cats, prevToDate: monthTotals(prevMonth(today.slice(0, 7)), today.slice(8)).expense, trend: trend(today.slice(0, 7)), goals: S.goals };
   }
@@ -777,7 +779,7 @@ const Core = (() => {
     if (p.startsWith('/api/transactions/')) return commit(() => method === 'PUT' ? updateTx(id, body) : deleteTx(id));
     if (p === '/api/accounts') return commit(() => {
       checkAccount(body);
-      const a = { id: nextId(), name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance, archived: 0 };
+      const a = { id: nextId(), name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance, business: !!body.business, archived: 0 };
       S.accounts.push(a); audit('create', 'account', a.id, null, a); return { id: a.id };
     });
     if (p.startsWith('/api/accounts/') && p.endsWith('/statement')) return statement(id);
@@ -794,7 +796,7 @@ const Core = (() => {
     });
     if (p.startsWith('/api/accounts/')) return commit(() => {
       const a = account(id); if (!a) throw bad('حساب پیدا نشد.');
-      if (method === 'PUT') { checkAccount(body); const before = { ...a }; Object.assign(a, { name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance }); audit('update', 'account', id, before, a); }
+      if (method === 'PUT') { checkAccount(body); const before = { ...a }; Object.assign(a, { name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance, business: !!body.business }); audit('update', 'account', id, before, a); }
       else { if (balance(a) !== 0) throw bad('حساب مانده دارد؛ اول مانده را صفر کنید.'); a.archived = 1; audit('archive', 'account', id); }
     });
     if (p === '/api/categories') return commit(() => {

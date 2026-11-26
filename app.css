@@ -618,3 +618,6 @@ ol.hint{padding-inline-start:20px}
 .chipsep{flex:0 0 100%;margin-top:6px}
 /* پیام نسخه‌ی تازه */
 #upd{position:fixed;z-index:60;left:16px;right:16px;top:calc(env(safe-area-inset-top) + 10px);max-width:520px;margin:0 auto;padding:14px 16px;border-radius:18px;font-weight:700;color:#fff;background:rgb(var(--acc));box-shadow:0 10px 30px rgb(0 0 0/.4)}
+/* حساب کسب‌وکار */
+.bizk{margin:6px 0 0}
+.bizt{font-size:11px;padding:1px 7px;border-radius:8px;background:rgb(255 255 255/.18);vertical-align:middle}

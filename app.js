@@ -162,6 +162,7 @@ function queueBanner() {
 const noBiz = () => !!S.home?.hasBusiness && store.get('noBiz', false);
 const homeTotals = h => noBiz() ? h.personal : h;
 function viewHome() {
+  if (luxeSkin()) return viewHomeLuxe();
   const h = S.home, t = homeTotals(h), modern = modernSkin();
   const acts = `<div class="actions">
     <button class="a-out" data-act="new" data-k="expense">${ICON.expense}هزینه</button>
@@ -177,10 +178,8 @@ function viewHome() {
   <button class="ghost" data-act="paste">چسباندن پیامک بانک</button>
   <button class="ghost" data-act="smsfile">خواندن فایل پیامک‌ها</button>
   ${modern ? '' : acts}
-  ${h.templates?.length ? `<h2>ثبت سریع</h2><p class="hint tplhint">لمس کنید، مبلغ را ببینید و «ثبت» را بزنید؛ ✎ برای عوض کردن مبلغ.</p><div class="chips">${h.templates.map(t => `<span class="tplc"><button class="chip go" data-act="tplgo" data-id="${t.id}">${t.kind === 'transfer' ? '⇄' : catEmoji(h.categories.find(c => c.id === t.categoryId)?.name, t.kind)} ${esc(t.name)} <small>${money(t.amount)}</small></button><button class="chip ed" data-act="tpl" data-id="${t.id}" aria-label="ویرایش و بعد ثبت ${esc(t.name)}">✎</button></span>`).join('')}</div>` : ''}
-  ${h.due?.length ? `<h2>سررسیدها</h2>${h.due.map(r => `<div class="card due"><div class="row"><b>${esc(r.name)}</b><b class="${r.kind === 'income' ? 'pos' : 'neg'}">${money(r.amount)}</b></div>
-    <small class="${r.overdue ? 'neg' : ''}">سررسید ${fa(r.next)}${r.overdue ? ' (گذشته)' : ''}${r.left ? ` · ${fa(r.left)} دفعه مانده` : ''}</small>
-    <div class="two"><button class="ghost" data-act="duepay" data-id="${r.id}">ثبت</button><button class="ghost" data-act="dueskip" data-id="${r.id}">این بار نه</button></div></div>`).join('')}` : ''}
+  ${homeTemplates(h)}
+  ${homeDue(h)}
   <h2>این ماه</h2>
   ${modern ? monthChart(h, t) : appleSkin() ? monthRings(h) : `<div class="stats">
     <div class="card"><small>درآمد</small><b class="pos">${money(h.income)}</b></div>
@@ -191,6 +190,65 @@ function viewHome() {
   ${h.cats?.length ? `<h2>خرج این ماه به تفکیک دسته</h2><div class="card donutcard" data-act="report">${donut(h.cats, 'هزینه')}</div>` : ''}
   <h2>آخرین تراکنش‌ها</h2>
   ${h.recent.length || S.queue.length ? `<div class="list">${queueRows()}${byDay(h.recent, t => txRow(t))}</div>` : `<div class="card empty">هنوز تراکنشی ثبت نشده است.</div>`}`;
+}
+
+/* ثبت سریع و سررسیدهای صفحه‌ی خانه (مشترک میان سبک‌ها) */
+const homeTemplates = h => `${h.templates?.length ? `<h2>ثبت سریع</h2><p class="hint tplhint">لمس کنید، مبلغ را ببینید و «ثبت» را بزنید؛ ✎ برای عوض کردن مبلغ.</p><div class="chips">${h.templates.map(t => `<span class="tplc"><button class="chip go" data-act="tplgo" data-id="${t.id}">${t.kind === 'transfer' ? '⇄' : catEmoji(h.categories.find(c => c.id === t.categoryId)?.name, t.kind)} ${esc(t.name)} <small>${money(t.amount)}</small></button><button class="chip ed" data-act="tpl" data-id="${t.id}" aria-label="ویرایش و بعد ثبت ${esc(t.name)}">✎</button></span>`).join('')}</div>` : ''}`;
+const homeDue = h => `${h.due?.length ? `<h2>سررسیدها</h2>${h.due.map(r => `<div class="card due"><div class="row"><b>${esc(r.name)}</b><b class="${r.kind === 'income' ? 'pos' : 'neg'}">${money(r.amount)}</b></div>
+    <small class="${r.overdue ? 'neg' : ''}">سررسید ${fa(r.next)}${r.overdue ? ' (گذشته)' : ''}${r.left ? ` · ${fa(r.left)} دفعه مانده` : ''}</small>
+    <div class="two"><button class="ghost" data-act="duepay" data-id="${r.id}">ثبت</button><button class="ghost" data-act="dueskip" data-id="${r.id}">این بار نه</button></div></div>`).join('')}` : ''}`;
+
+/* ---------- سبک «طلایی شب»: مشکی و طلایی؛ همه‌ی جلوه‌ها ثابت (SVG و گرادیان)، بدون blur و انیمیشن ---------- */
+const LUXE_PAL = ['#f5be46', '#3b82f6', '#a855f7', '#22c55e', '#ef4444', '#8e8e93'];
+const LUXE_ART = `<svg class="lxart" viewBox="0 0 170 120" aria-hidden="true"><defs>
+  <linearGradient id="lxg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".5" stop-color="#f2b53c"/><stop offset="1" stop-color="#9a6510"/></linearGradient>
+  <linearGradient id="lxa" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#b9821f" stop-opacity="0"/><stop offset=".45" stop-color="#e8a93a"/><stop offset="1" stop-color="#ffe08a"/></linearGradient></defs>
+  <path d="M8 104 C40 96 62 84 86 62 S128 26 150 14" fill="none" stroke="url(#lxa)" stroke-width="7" stroke-linecap="round"/><path d="M136 8 156 10 152 30Z" fill="#ffd36b"/>
+  ${[[28, 3], [58, 5], [88, 7], [118, 9]].map(([x, n]) => Array.from({ length: n }, (_, i) => `<ellipse cx="${x}" cy="${112 - i * 8}" rx="13" ry="4.5" fill="url(#lxg)" stroke="#7a4e0c" stroke-width=".6"/>`).join('')).join('')}</svg>`;
+const luxeTile = (act, k, label, icon) => `<button class="lxt" data-act="${act}"${k ? ` data-k="${k}"` : ''}><i>${icon}</i>${label}</button>`;
+function luxeTrend(series) {
+  if (!series?.length) return '';
+  const n = store.get('sparkN', 30), pts = series.slice(-n), vals = pts.map(p => p.total);
+  const lo = Math.min(...vals), hi = Math.max(...vals), W = 300, H = 110, pad = 14;
+  const X = i => i * W / Math.max(1, pts.length - 1), Y = v => hi === lo ? H / 2 : pad + (H - 2 * pad) * (1 - (v - lo) / (hi - lo));
+  const P2 = vals.map((v, i) => [X(i), Y(v)]);
+  const d = P2.map(([x, y], i) => !i ? `M${x.toFixed(1)} ${y.toFixed(1)}` : `Q${P2[i - 1][0].toFixed(1)} ${P2[i - 1][1].toFixed(1)} ${((P2[i - 1][0] + x) / 2).toFixed(1)} ${((P2[i - 1][1] + y) / 2).toFixed(1)}`).join(' ') + ` L${W} ${P2[P2.length - 1][1].toFixed(1)}`;
+  const top = vals.lastIndexOf(hi), [tx, ty] = P2[top], tl = Math.min(Math.max(tx, 60), W - 60);
+  return `<div class="card lxtrend"><div class="lxh"><b>روند موجودی</b><span class="lxper"><button type="button" class="${n === 30 ? 'on' : ''}" data-act="spark" data-n="30">۳۰ روز</button><button type="button" class="${n === 90 ? 'on' : ''}" data-act="spark" data-n="90">۹۰ روز</button></span></div>
+    <div class="lxchart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="lxf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f5be46" stop-opacity=".45"/><stop offset="1" stop-color="#f5be46" stop-opacity="0"/></linearGradient></defs>
+      ${[1, 2, 3].map(i => `<line x1="0" x2="${W}" y1="${(H * i / 4).toFixed(1)}" y2="${(H * i / 4).toFixed(1)}" class="lxgl"/>`).join('')}
+      <path d="${d} L${W} ${H} L0 ${H} Z" fill="url(#lxf)"/><path d="${d}" class="lxln"/></svg>
+      <i class="lxdot" style="left:${(tx * 100 / W).toFixed(1)}%;top:${(ty * 100 / H).toFixed(1)}%"></i>
+      <span class="lxtip amtx" style="left:${(tl * 100 / W).toFixed(1)}%;top:${(ty * 100 / H).toFixed(1)}%">${money(hi)} <small>${unitName()}</small></span></div>
+    <div class="lxax"><span>${fa(pts[0].date.slice(5))}</span><span>${fa(pts[pts.length - 1].date.slice(5))}</span></div></div>`;
+}
+function viewHomeLuxe() {
+  const h = S.home, t = homeTotals(h), total = t.cash + t.bank;
+  const ser = (t.series ?? []).slice(-30), first = ser[0]?.total ?? total, diff = total - first;
+  const pct = first > 0 ? Math.round(diff * 1000 / first) / 10 : null;
+  const delta = diff ? `<span class="lxd ${diff > 0 ? 'pos' : 'neg'}">${diff > 0 ? '▲' : '▼'} ${pct !== null ? fa(Math.abs(pct)).replace('.', '٫') + '٪' : `<b class="amtx">${money(Math.abs(diff))}</b>`} <small>۳۰ روز</small></span>` : '';
+  const d = new Date(), wd = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
+  const accs = h.accounts.slice(0, 4).map(a => `<button class="lxacc" data-act="stmt" data-id="${a.id}"><i class="ci" style="--tile:${a.kind === 'cash' ? '#b8862b' : '#2f6fe0'}">${a.kind === 'cash' ? CAT_SVG['👛'][1] : CAT_SVG['🏦'][1]}</i><span><small>${esc(a.name)}</small><b class="amtx ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</b></span></button>`).join('');
+  $('#view').innerHTML = `
+  <div class="lxhead"><div><b>حساب من</b><small>${wd}</small></div><button class="lxgear" data-act="tab" data-v="more" aria-label="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></div>
+  <div class="card hero lxhero"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button>${LUXE_ART}
+    <div class="lbl">وضعیت مالی شما${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
+    <div class="big" data-count="${total}">${money(total)}</div><div class="lxu">${unitName()} ${delta}</div>
+    <div class="row"><span>نقد: ${money(t.cash)}</span><span>بانک: ${money(t.bank)}</span></div>
+    ${h.hasBusiness ? `<div class="spk bizk"><span></span><span><button type="button" class="${noBiz() ? '' : 'on'}" data-act="biz" data-v="0">همه</button><button type="button" class="${noBiz() ? 'on' : ''}" data-act="biz" data-v="1">بدون کسب‌وکار</button></span></div>` : ''}</div>
+  ${queueBanner()}
+  <div class="lxtiles">${luxeTile('new', 'expense', 'هزینه', ICON.expense)}${luxeTile('new', 'income', 'درآمد', ICON.income)}${luxeTile('new', 'transfer', 'انتقال', ICON.transfer)}
+    ${luxeTile('report', '', 'گزارش', SV('M5 20V10M10 20V4M15 20v-7M20 20v-11'))}${luxeTile('inbox', '', 'پیامک بانک', SV('M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17A2.5 2.5 0 0 1 4 14.5Z'))}</div>
+  ${homeTemplates(h)}${homeDue(h)}
+  ${luxeTrend(t.series)}
+  <div class="lxsplit">
+    <div class="card lxcol"><div class="lxh"><b>تحلیل هزینه‌ها</b></div>${h.cats?.length ? donut(h.cats.slice(0, 3).concat(h.cats.length > 3 ? [{ name: null, amount: h.cats.slice(3).reduce((s, x) => s + x.amount, 0) }] : []).filter(x => x.amount), 'هزینه', LUXE_PAL) : '<p class="hint">این ماه خرجی نیست.</p>'}
+      <button class="lxmore" data-act="report">مشاهده جزئیات ‹</button></div>
+    <div class="card lxcol"><div class="lxh"><b>حساب‌های شما</b></div><div class="lxaccs">${accs}</div><button class="lxmore" data-act="tab" data-v="accounts">مدیریت حساب‌ها ‹</button></div>
+  </div>
+  <div class="lxh lxsec"><b>آخرین تراکنش‌ها</b><button class="lxmore" data-act="tab" data-v="list">مشاهده همه ‹</button></div>
+  ${h.recent.length || S.queue.length ? `<div class="list">${queueRows()}${byDay(h.recent.slice(0, 6), t => txRow(t))}</div>` : `<div class="card empty">هنوز تراکنشی ثبت نشده است.</div>`}
+  ${wrapBanner(h)}${budgetRings(h)}${subsCard(h)}${insightCard(h)}`;
 }
 
 /* سبک «اپل»: درآمد، هزینه و پس‌انداز ماه با سه حلقه (نسبت به بزرگ‌ترِ درآمد و هزینه) */
@@ -834,7 +892,8 @@ const hue = s => { let h = 7; for (const ch of String(s ?? '')) h = (h * 31 + ch
 const appleSkin = () => /^apple/.test(document.documentElement.dataset.skin || '');
 const modernSkin = () => /^modern/.test(document.documentElement.dataset.skin || '');
 /* سبک‌هایی که به‌جای ایموجی نماد خطی دارند */
-const lineSkin = () => appleSkin() || modernSkin();
+const luxeSkin = () => document.documentElement.dataset.skin === 'luxe';
+const lineSkin = () => appleSkin() || modernSkin() || luxeSkin();
 const CS = (c, d) => [c, `<svg viewBox="0 0 24 24">${d}</svg>`];
 const CAT_SVG = {
   '💼': CS('#34c759', '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>'),
@@ -883,17 +942,17 @@ function txIcon(t) {
 
 /* ---------- نمودار دایره‌ای و روند ---------- */
 const PAL = ['#3fb7ff', '#ff7a8a', '#ffcf6b', '#3ddc97', '#b28cff', '#ff9f5a'];
-function donut(items, label) {
+function donut(items, label, pal = PAL) {
   const total = items.reduce((s, x) => s + x.amount, 0); if (!total) return '';
   const r = 46, C = 2 * Math.PI * r; let off = 0;
   const top = items.slice(0, 5), rest = items.slice(5).reduce((s, x) => s + x.amount, 0);
   const parts = rest ? [...top, { name: null, amount: rest }] : top;
   const segs = parts.map((x, i) => {
     const len = C * x.amount / total;
-    const s = `<circle class="s" r="${r}" cx="60" cy="60" stroke="${PAL[i]}" stroke-dasharray="${Math.max(0.5, len - (parts.length > 1 ? 2 : 0)).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" style="--i:${i}" transform="rotate(-90 60 60)"/>`;
+    const s = `<circle class="s" r="${r}" cx="60" cy="60" stroke="${pal[i]}" stroke-dasharray="${Math.max(0.5, len - (parts.length > 1 ? 2 : 0)).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" style="--i:${i}" transform="rotate(-90 60 60)"/>`;
     off += len; return s;
   }).join('');
-  const legend = parts.map((x, i) => `<li><i style="background:${PAL[i]}"></i><span>${x.name ? catEmoji(x.name, 'expense') + ' ' + esc(x.name) : 'بقیه'}</span><b>${fa(Math.round(x.amount * 100 / total))}٪</b></li>`).join('');
+  const legend = parts.map((x, i) => `<li><i style="background:${pal[i]}"></i><span>${x.name ? catEmoji(x.name, 'expense') + ' ' + esc(x.name) : 'بقیه'}</span><b>${fa(Math.round(x.amount * 100 / total))}٪</b></li>`).join('');
   return `<div class="donutbox"><svg class="donut" viewBox="0 0 120 120" role="img" aria-label="سهم هر دسته"><circle class="bgc" r="${r}" cx="60" cy="60"/>${segs}
     <text x="60" y="55" text-anchor="middle" class="dl">${label}</text><text x="60" y="73" text-anchor="middle" class="dv">${money(total)}</text></svg><ul class="legend">${legend}</ul></div>`;
 }
@@ -1149,7 +1208,7 @@ const SKINS = [['classic', 'کلاسیک', '#05080f', 'linear-gradient(135deg,#0
   ['neon', 'نئون', '#000000', 'linear-gradient(135deg,#00fff0,#ff00c8)'], ['gold', 'طلایی لوکس', '#070707', 'linear-gradient(135deg,#f8e6ba,#b8913f)'],
   ['light', 'روشن پاستلی', '#f3f1ff', 'linear-gradient(135deg,#d9d0ff,#ffd6e8,#cdeffd)'], ['aurora', 'رنگین', '#0a0614', 'linear-gradient(135deg,#f72585,#7209b7,#4361ee)'],
   ['apple', 'اپل روشن', '#f2f2f7', 'linear-gradient(135deg,#f2f2f7 55%,#007aff 55%)'], ['appledark', 'اپل تیره', '#000000', 'linear-gradient(135deg,#1c1c1e 55%,#0a84ff 55%)'],
-  ['modern', 'بانک مدرن', '#4f46e5', 'linear-gradient(160deg,#4f46e5,#7c3aed 55%,#c026d3)'], ['moderndark', 'بانک مدرن تیره', '#0b0b10', 'radial-gradient(120% 90% at 85% 0,#6d28d9,transparent 70%),radial-gradient(80% 70% at 0 0,#2563eb,transparent 70%),#0b0b10']];
+  ['modern', 'بانک مدرن', '#4f46e5', 'linear-gradient(160deg,#4f46e5,#7c3aed 55%,#c026d3)'], ['luxe', 'طلایی شب', '#050505', 'linear-gradient(135deg,#050505 40%,#f5be46 75%,#7a5310)'], ['moderndark', 'بانک مدرن تیره', '#0b0b10', 'radial-gradient(120% 90% at 85% 0,#6d28d9,transparent 70%),radial-gradient(80% 70% at 0 0,#2563eb,transparent 70%),#0b0b10']];
 function setSkin(k) {
   const s = SKINS.find(x => x[0] === k) ?? SKINS[0];
   document.documentElement.dataset.skin = s[0];
@@ -1469,7 +1528,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v28';
+const VERSION = 'v29';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

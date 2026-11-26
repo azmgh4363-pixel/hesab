@@ -162,26 +162,27 @@ function queueBanner() {
 const noBiz = () => !!S.home?.hasBusiness && store.get('noBiz', false);
 const homeTotals = h => noBiz() ? h.personal : h;
 function viewHome() {
-  const h = S.home, t = homeTotals(h);
+  const h = S.home, t = homeTotals(h), modern = modernSkin();
+  const acts = `<div class="actions">
+    <button class="a-out" data-act="new" data-k="expense">${ICON.expense}هزینه</button>
+    <button data-act="new" data-k="income">${ICON.income}درآمد</button>
+    <button data-act="new" data-k="transfer">${ICON.transfer}انتقال</button>
+  </div>`;
   $('#view').innerHTML = `
   <div class="card hero"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button><div class="lbl">کل موجودی${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
     <div class="big" data-count="${t.cash + t.bank}">${money(t.cash + t.bank)} <span class="unit">${unitName()}</span></div>
     <div class="row"><span>نقد: ${money(t.cash)}</span><span>بانک: ${money(t.bank)}</span></div>
-    ${h.hasBusiness ? `<div class="spk bizk"><span></span><span><button type="button" class="${noBiz() ? '' : 'on'}" data-act="biz" data-v="0">همه</button><button type="button" class="${noBiz() ? 'on' : ''}" data-act="biz" data-v="1">بدون کسب‌وکار</button></span></div>` : ''}${spark(t.series)}</div>
+    ${h.hasBusiness ? `<div class="spk bizk"><span></span><span><button type="button" class="${noBiz() ? '' : 'on'}" data-act="biz" data-v="0">همه</button><button type="button" class="${noBiz() ? 'on' : ''}" data-act="biz" data-v="1">بدون کسب‌وکار</button></span></div>` : ''}${modern ? acts : spark(t.series)}</div>
   ${queueBanner()}
   <button class="ghost" data-act="paste">چسباندن پیامک بانک</button>
   <button class="ghost" data-act="smsfile">خواندن فایل پیامک‌ها</button>
-  <div class="actions">
-    <button class="a-out" data-act="new" data-k="expense">${ICON.expense}هزینه</button>
-    <button data-act="new" data-k="income">${ICON.income}درآمد</button>
-    <button data-act="new" data-k="transfer">${ICON.transfer}انتقال</button>
-  </div>
-  ${h.templates?.length ? `<h2>ثبت سریع</h2><p class="hint tplhint">با یک لمس ثبت می‌شود؛ ✎ برای عوض کردن مبلغ.</p><div class="chips">${h.templates.map(t => `<span class="tplc"><button class="chip go" data-act="tplgo" data-id="${t.id}">${t.kind === 'transfer' ? '⇄' : catEmoji(h.categories.find(c => c.id === t.categoryId)?.name, t.kind)} ${esc(t.name)} <small>${money(t.amount)}</small></button><button class="chip ed" data-act="tpl" data-id="${t.id}" aria-label="ویرایش و بعد ثبت ${esc(t.name)}">✎</button></span>`).join('')}</div>` : ''}
+  ${modern ? '' : acts}
+  ${h.templates?.length ? `<h2>ثبت سریع</h2><p class="hint tplhint">لمس کنید، مبلغ را ببینید و «ثبت» را بزنید؛ ✎ برای عوض کردن مبلغ.</p><div class="chips">${h.templates.map(t => `<span class="tplc"><button class="chip go" data-act="tplgo" data-id="${t.id}">${t.kind === 'transfer' ? '⇄' : catEmoji(h.categories.find(c => c.id === t.categoryId)?.name, t.kind)} ${esc(t.name)} <small>${money(t.amount)}</small></button><button class="chip ed" data-act="tpl" data-id="${t.id}" aria-label="ویرایش و بعد ثبت ${esc(t.name)}">✎</button></span>`).join('')}</div>` : ''}
   ${h.due?.length ? `<h2>سررسیدها</h2>${h.due.map(r => `<div class="card due"><div class="row"><b>${esc(r.name)}</b><b class="${r.kind === 'income' ? 'pos' : 'neg'}">${money(r.amount)}</b></div>
     <small class="${r.overdue ? 'neg' : ''}">سررسید ${fa(r.next)}${r.overdue ? ' (گذشته)' : ''}${r.left ? ` · ${fa(r.left)} دفعه مانده` : ''}</small>
     <div class="two"><button class="ghost" data-act="duepay" data-id="${r.id}">ثبت</button><button class="ghost" data-act="dueskip" data-id="${r.id}">این بار نه</button></div></div>`).join('')}` : ''}
   <h2>این ماه</h2>
-  ${appleSkin() ? monthRings(h) : `<div class="stats">
+  ${modern ? monthChart(h, t) : appleSkin() ? monthRings(h) : `<div class="stats">
     <div class="card"><small>درآمد</small><b class="pos">${money(h.income)}</b></div>
     <div class="card"><small>هزینه</small><b class="neg">${money(h.expense)}</b></div>
     <div class="card"><small>خالص</small><b class="${h.net < 0 ? 'neg' : 'pos'}">${money(h.net)}</b></div>
@@ -202,6 +203,13 @@ function monthRings(h) {
     <div class="t"><div class="r"><span><i style="background:#34c759"></i>درآمد</span><b class="pos">${money(h.income)}</b></div>
     <div class="r"><span><i style="background:#ff375f"></i>هزینه${pct(h.expense)}</span><b class="neg">${money(h.expense)}</b></div>
     <div class="r"><span><i style="background:#0a84ff"></i>${h.net < 0 ? 'کسری' : 'پس‌انداز' + pct(save)}</span><b class="${h.net < 0 ? 'neg' : 'pos'}">${money(h.net)}</b></div></div></div>`;
+}
+
+/* سبک «بانک مدرن»: نمودار نرم موجودی و جمع ماه در یک کارت */
+function monthChart(h, t) {
+  return `<div class="card mchart">${spark(t.series, true)}<div class="mleg">
+    <div><span>درآمد</span><b class="pos">${money(h.income)}</b></div><div><span>هزینه</span><b class="neg">${money(h.expense)}</b></div>
+    <div><span>خالص</span><b class="${h.net < 0 ? 'neg' : 'pos'}">${money(h.net)}</b></div></div></div>`;
 }
 
 async function viewList() {
@@ -541,17 +549,35 @@ function accForm(a) {
     <label for="ak">نوع</label><select id="ak"><option value="bank" ${a?.kind === 'bank' ? 'selected' : ''}>بانک</option><option value="cash" ${a?.kind === 'cash' ? 'selected' : ''}>نقد</option></select>
     <label for="ab">نام بانک</label><input id="ab" value="${esc(a?.bankName)}">
     <label for="au">شماره حساب (اختیاری)</label><input id="au" inputmode="numeric" class="date" value="${esc(a?.accountNumber)}">
+    <div id="abank"><label for="acn">شماره کارت (اختیاری)</label><input id="acn" inputmode="numeric" class="date" autocomplete="off" placeholder="۱۶ رقم روی کارت" value="${esc(grp4(a?.cardNumber))}">
+    <label for="aib">شماره شبا (اختیاری)</label><input id="aib" inputmode="numeric" class="date" autocomplete="off" placeholder="IR و ۲۴ رقم" value="${esc(grp4(a?.iban))}">
+    <small class="hint" id="acnok"></small></div>
     <label for="ao">موجودی اولیه (${unitName()})</label><input id="ao" inputmode="numeric" class="date" value="${a ? amtIn(a.openingBalance) : ''}">
     <label class="chk"><input type="checkbox" id="abz" ${a?.business ? 'checked' : ''}> این حساب مال کسب‌وکار است</label>
     <p class="hint">در صفحه‌ی خانه می‌توانید موجودی را بدون حساب‌های کسب‌وکار ببینید.</p>
     <div class="err" id="err" role="alert"></div><button class="primary">ذخیره</button>
     ${a ? `<button type="button" class="ghost danger" data-act="archive" data-id="${a.id}">بایگانی حساب</button>` : ''}</form>`);
   $('#ao').oninput = amtTyping;
+  /* شماره کارت و شبا: فقط رقم، چهارتایی جدا، با کنترل درستی همان لحظه */
+  const card = () => digits($('#acn').value), iban = () => { const d = digits($('#aib').value); return d ? 'IR' + d : ''; };
+  const checkNums = () => {
+    const c = card(), i = iban(), m = [];
+    if (c) m.push(c.length < 16 ? `شماره کارت: ${fa(c.length)} رقم از ۱۶` : Core.cardOk(c) ? '✓ شماره کارت درست است' : '✗ شماره کارت درست نیست');
+    if (i) m.push(i.length < 26 ? `شبا: ${fa(i.length - 2)} رقم از ۲۴` : Core.ibanOk(i) ? '✓ شبا درست است' : '✗ شبا درست نیست');
+    $('#acnok').textContent = m.join(' · ');
+  };
+  $('#acn').oninput = e => { e.target.value = grp4(card().slice(0, 16)); checkNums(); };
+  $('#aib').oninput = e => { const d = digits(e.target.value).slice(0, 24); e.target.value = d ? grp4('IR' + d) : ''; checkNums(); };
+  const kindShow = () => { $('#abank').hidden = $('#ak').value !== 'bank'; };
+  $('#ak').onchange = kindShow; kindShow(); checkNums();
   $('#af').onsubmit = async e => {
     e.preventDefault();
+    const bank = $('#ak').value === 'bank', cn = bank ? card() : '', ib = bank ? iban() : '';
+    if (cn && !Core.cardOk(cn)) return $('#err').textContent = 'شماره کارت درست نیست؛ ۱۶ رقم روی کارت را دوباره ببینید.';
+    if (ib && !Core.ibanOk(ib)) return $('#err').textContent = 'شماره شبا درست نیست؛ IR و ۲۴ رقم بعدش را دوباره ببینید.';
     const sign = a && a.openingBalance < 0 ? -1 : 1;
     const ob = readAmt($('#ao').value); if (Number.isNaN(ob)) return $('#err').textContent = UNIT_ERR;
-    const body = { name: $('#an').value, kind: $('#ak').value, bankName: $('#ab').value.trim() || null, accountNumber: en($('#au').value).trim() || null, openingBalance: sign * ob, business: $('#abz').checked };
+    const body = { name: $('#an').value, kind: $('#ak').value, bankName: $('#ab').value.trim() || null, accountNumber: en($('#au').value).trim() || null, cardNumber: cn || null, iban: ib || null, openingBalance: sign * ob, business: $('#abz').checked };
     try { await api('/api/accounts' + (a ? '/' + a.id : ''), a ? 'PUT' : 'POST', body); closeSheet(); toast('ذخیره شد.'); refresh(); }
     catch (x) { x.auth ? showAuth(true) : $('#err').textContent = x.msg; }
   };
@@ -651,6 +677,14 @@ const actions = {
   export: exportCsv,
   stmt(b) { S.accId = Number(b.dataset.id); S.view = 'stmt'; render(); window.scrollTo(0, 0); },
   acc(b) { accForm(S.home.accounts.find(a => a.id === Number(b.dataset.id))); },
+  bflip(b) { b.closest('.bcard').classList.toggle('flipped'); },
+  bcopy(b) { copyText(b.dataset.v, 'کپی شد.'); },
+  bcopyall(b) { const a = S.home.accounts.find(x => x.id === Number(b.closest('.bcard').dataset.id)); if (a) copyText(bankShareText(a), 'همه‌ی شماره‌ها کپی شد.'); },
+  async bshare(b) {
+    const a = S.home.accounts.find(x => x.id === Number(b.closest('.bcard').dataset.id)); if (!a) return;
+    const text = bankShareText(a);
+    if (navigator.share) { try { await navigator.share({ text }); } catch { } } else copyText(text, 'شماره‌ها کپی شد.');
+  },
   async archive(b) {
     if (!confirm('این حساب بایگانی شود؟')) return;
     try { await api('/api/accounts/' + b.dataset.id, 'DELETE'); closeSheet(); S.view = 'accounts'; refresh(); } catch (e) { $('#err').textContent = e.msg; }
@@ -798,6 +832,9 @@ function catEmoji(name, kind) {
 const hue = s => { let h = 7; for (const ch of String(s ?? '')) h = (h * 31 + ch.codePointAt(0)) % 360; return h; };
 /* سبک «اپل»: به‌جای ایموجی، نماد خطی روی مربع رنگی (اگر نمادی نباشد همان ایموجی) */
 const appleSkin = () => /^apple/.test(document.documentElement.dataset.skin || '');
+const modernSkin = () => /^modern/.test(document.documentElement.dataset.skin || '');
+/* سبک‌هایی که به‌جای ایموجی نماد خطی دارند */
+const lineSkin = () => appleSkin() || modernSkin();
 const CS = (c, d) => [c, `<svg viewBox="0 0 24 24">${d}</svg>`];
 const CAT_SVG = {
   '💼': CS('#34c759', '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>'),
@@ -835,11 +872,11 @@ const CAT_SVG = {
   '💰': CS('#34c759', '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2c-1 0-2-.5-2.5-1.5"/>')
 };
 const catIcon = (name, kind) => {
-  const e = catEmoji(name, kind), s = appleSkin() && CAT_SVG[e];
+  const e = catEmoji(name, kind), s = lineSkin() && CAT_SVG[e];
   return s ? `<i class="ci" style="--tile:${s[0]}" aria-hidden="true">${s[1]}</i>` : `<i class="ci" style="--h:${hue(name)}" aria-hidden="true">${e}</i>`;
 };
 function txIcon(t) {
-  if (t.kind === 'transfer') return `<i class="ci tr" style="--h:205" aria-hidden="true">${appleSkin() ? ICON.transfer : '⇄'}</i>`;
+  if (t.kind === 'transfer') return `<i class="ci tr" style="--h:205" aria-hidden="true">${lineSkin() ? ICON.transfer : '⇄'}</i>`;
   const c = S.home?.categories.find(x => x.id === t.categoryId);
   return catIcon(c?.name ?? t.categoryName, isNeutral(t) ? 'neutral' : t.kind);
 }
@@ -1054,9 +1091,22 @@ Object.assign(actions, {
     $('#rcb').focus();
   },
   /* ثبت آماده با یک لمس: همان لحظه با تاریخ امروز ثبت می‌شود */
-  async tplgo(b) {
+  /* ثبت سریع: اول می‌پرسد (لمس ناخواسته چیزی ثبت نکند)، بعد با «ثبت» در tplok ثبت می‌شود */
+  tplgo(b) {
+    const t = (S.home.templates ?? []).find(x => x.id === Number(b.dataset.id)); if (!t) return;
+    const acc = id => esc(S.home.accounts.find(a => a.id === id)?.name ?? '');
+    const cat = S.home.categories.find(c => c.id === t.categoryId)?.name;
+    const where = t.kind === 'transfer' ? `از ${acc(t.accountId)} به ${acc(t.toAccountId)}` : `${cat ? esc(cat) + ' · ' : ''}${t.kind === 'income' ? 'به' : 'از'} حساب ${acc(t.accountId)}`;
+    const f = $('#fab'); if (f?.classList.contains('open')) actions.fab(f.querySelector('.fabb'));
+    openSheet(`<div class="phead"><h1>ثبت «${esc(t.name)}»؟</h1><button type="button" class="x" data-act="close">بستن</button></div>
+      <div class="card tplask"><div class="evamt amtx ${t.kind === 'income' ? 'pos' : t.kind === 'expense' ? 'neg' : ''}">${money(t.amount)} <span class="unit">${unitName()}</span></div>
+      <small class="hint">${KIND[t.kind]} · ${where} · امروز</small></div>
+      <button type="button" class="primary" data-act="tplok" data-id="${t.id}">ثبت</button>
+      <div class="two"><button type="button" class="ghost" data-act="tpl" data-id="${t.id}">تغییر مبلغ</button><button type="button" class="ghost" data-act="close">انصراف</button></div>`);
+  },
+  async tplok(b) {
     const t = (S.home.templates ?? []).find(x => x.id === Number(b.dataset.id)); if (!t || b.disabled) return;
-    b.disabled = true;
+    b.disabled = true; closeSheet();
     const tx = { kind: t.kind, amount: t.amount, accountId: t.accountId, toAccountId: t.toAccountId ?? null, categoryId: t.categoryId ?? null, personId: t.personId ?? null,
       description: t.description ?? null, method: t.method ?? null, notes: null, date: today(), clientId: uuid() };
     try {
@@ -1098,7 +1148,8 @@ document.documentElement.dataset.accent = store.get('accent', 'blue');
 const SKINS = [['classic', 'کلاسیک', '#05080f', 'linear-gradient(135deg,#0f2c55,#3fb7ff)'], ['liquid', 'شیشه‌ی مایع', '#0b0b1a', 'linear-gradient(135deg,#7b5cff,#ff5fa2,#22c1ee)'],
   ['neon', 'نئون', '#000000', 'linear-gradient(135deg,#00fff0,#ff00c8)'], ['gold', 'طلایی لوکس', '#070707', 'linear-gradient(135deg,#f8e6ba,#b8913f)'],
   ['light', 'روشن پاستلی', '#f3f1ff', 'linear-gradient(135deg,#d9d0ff,#ffd6e8,#cdeffd)'], ['aurora', 'رنگین', '#0a0614', 'linear-gradient(135deg,#f72585,#7209b7,#4361ee)'],
-  ['apple', 'اپل روشن', '#f2f2f7', 'linear-gradient(135deg,#f2f2f7 55%,#007aff 55%)'], ['appledark', 'اپل تیره', '#000000', 'linear-gradient(135deg,#1c1c1e 55%,#0a84ff 55%)']];
+  ['apple', 'اپل روشن', '#f2f2f7', 'linear-gradient(135deg,#f2f2f7 55%,#007aff 55%)'], ['appledark', 'اپل تیره', '#000000', 'linear-gradient(135deg,#1c1c1e 55%,#0a84ff 55%)'],
+  ['modern', 'بانک مدرن', '#4f46e5', 'linear-gradient(160deg,#4f46e5,#7c3aed 55%,#c026d3)'], ['moderndark', 'بانک مدرن تیره', '#0b0b10', 'radial-gradient(120% 90% at 85% 0,#6d28d9,transparent 70%),radial-gradient(80% 70% at 0 0,#2563eb,transparent 70%),#0b0b10']];
 function setSkin(k) {
   const s = SKINS.find(x => x[0] === k) ?? SKINS[0];
   document.documentElement.dataset.skin = s[0];
@@ -1299,24 +1350,46 @@ const BANKS = [[/ملت/, '#d4202a', '#6e0c16'], [/ملی/, '#1f4fa8', '#0a2152'
   [/رسالت/, '#14a3a3', '#05424a'], [/مسکن/, '#f07a1a', '#6e2e00'], [/کشاورزی/, '#1f8a5a', '#08371f'], [/رفاه/, '#2a86e0', '#0c366b'],
   [/آینده/, '#7b3fa8', '#2e1047'], [/اقتصاد ?نوین/, '#7a2a9c', '#2d0d40'], [/شهر/, '#d22b3c', '#540b14'], [/سینا/, '#1b6aa8', '#092c4a'],
   [/(^|\s)دی(\s|$)/, '#1aa38a', '#06443a'], [/بلو/, '#2f6fe0', '#0f2a63'], [/توسعه/, '#3a7bd5', '#0f2f5f'], [/قرض.?الحسنه/, '#0f9d58', '#053f22']];
+/* چهارتایی جدا (شماره کارت و شبا با رقم لاتین، مثل روی کارت) */
+const grp4 = v => v ? String(v).replace(/\s/g, '').replace(/(.{4})(?=.)/g, '$1 ') : '';
+const NFC = '<svg class="nfc" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7a7 7 0 0 1 0 10M12 5a10 10 0 0 1 0 14M16 3a13 13 0 0 1 0 18"/></svg>';
+const SV = d => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+const I_FLIP = SV('M4 12a8 8 0 0 1 14-5.3M20 4v4h-4M20 12a8 8 0 0 1-14 5.3M4 20v-4h4');
+const I_COPY = SV('M8 8h12v12H8ZM16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8');
+const I_SHARE = SV('M12 3v12M7 8l5-5 5 5M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6');
+const bankNums = a => [['شماره کارت', a.cardNumber], ['شماره حساب', a.accountNumber && en(a.accountNumber)], ['شبا', a.iban]].filter(x => x[1]);
 function bankCard(a) {
-  const key = `${a.bankName || ''} ${a.name}`, hit = BANKS.find(([re]) => re.test(key)), h = hue(key);
-  const [c1, c2] = a.kind === 'cash' ? ['#9a6a33', '#3a220c'] : hit ? [hit[1], hit[2]] : [`hsl(${h} 60% 45%)`, `hsl(${h} 60% 16%)`];
-  const num = en(a.accountNumber || '').replace(/\D/g, '').slice(-4);
-  return `<button class="bcard ${a.kind}" data-act="stmt" data-id="${a.id}" style="--c1:${c1};--c2:${c2}">
-    <span class="bt"><b>${a.kind === 'bank' ? esc(a.bankName || 'بانک') : 'نقد'}</b>${a.kind === 'bank' ? '<i class="chipg" aria-hidden="true"></i>' : '<i class="wal" aria-hidden="true">👛</i>'}</span>
-    <span class="bn">${esc(a.name)}${a.business ? ' <small class="bizt">کسب‌وکار</small>' : ''}</span>
-    <span class="bal ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)} <small>${unitName()}</small></span>
-    <span class="bno">${num ? '•••• ' + fa(num) : a.kind === 'cash' ? 'کیف پول' : ''}</span></button>`;
+  const key = `${a.bankName || ''} ${a.name}`, hit = BANKS.find(([re]) => re.test(key)), h = hue(key), bank = a.kind === 'bank';
+  const [c1, c2] = !bank ? ['#9a6a33', '#3a220c'] : hit ? [hit[1], hit[2]] : [`hsl(${h} 60% 45%)`, `hsl(${h} 60% 16%)`];
+  const title = bank ? esc(a.bankName || 'بانک') : 'نقد', logo = esc([...(bank ? (a.bankName || a.name || 'ب') : 'ن')][0]);
+  const nums = bank ? bankNums(a) : [], cn = a.cardNumber;
+  const shown = cn ? `${cn.slice(0, 4)} ${cn.slice(4, 8)} •••• ${cn.slice(12)}` : a.accountNumber ? grp4(en(a.accountNumber)) : '';
+  const flip = nums.length ? `<button type="button" class="bfl" data-act="bflip" aria-label="پشت کارت">${I_FLIP}</button>` : '';
+  return `<div class="bcard ${a.kind}" role="button" tabindex="0" data-act="stmt" data-id="${a.id}" style="--c1:${c1};--c2:${c2}">
+    <div class="bf front"><span class="bt"><span class="bk"><i class="blg">${logo}</i><b>${title}</b></span>${flip}</span>
+      ${bank ? `<span class="bmid"><i class="chipg" aria-hidden="true"></i>${NFC}</span>` : '<span class="bmid"><i class="wal" aria-hidden="true">👛</i></span>'}
+      <span class="bnum">${shown ? esc(shown) : !bank ? 'کیف پول' : ''}</span>
+      <span class="bbot"><span><small>حساب</small><b>${esc(a.name)}${a.business ? ' <small class="bizt">کسب‌وکار</small>' : ''}</b></span>
+      <span class="bal ${a.balance < 0 ? 'neg' : ''}"><small>موجودی</small>${money(a.balance)} <small>${unitName()}</small></span></span></div>
+    ${nums.length ? `<div class="bf back"><span class="bt"><span class="bk"><b>${title}</b></span><span class="bacts">
+      <button type="button" data-act="bshare" aria-label="فرستادن">${I_SHARE}</button><button type="button" data-act="bcopyall" aria-label="کپی همه">${I_COPY}</button>${flip}</span></span>
+      <i class="stripe" aria-hidden="true"></i>
+      ${nums.map(([k, v]) => `<span class="brow"><small>${k}</small><code>${esc(grp4(v))}</code><button type="button" data-act="bcopy" data-v="${esc(v)}" aria-label="کپی ${k}">${I_COPY}</button></span>`).join('')}</div>` : ''}</div>`;
+}
+function bankShareText(a) { return [`${a.bankName || ''} - ${a.name}`.replace(/^ - /, ''), ...bankNums(a).map(([k, v]) => `${k}: ${grp4(v)}`)].join('\n'); }
+async function copyText(t, msg) {
+  try { await navigator.clipboard.writeText(t); toast(msg); } catch { toast('کپی نشد؛ دستی انتخاب کنید.'); }
 }
 
 /* ---------- نمودار موجودی زیر کارت خانه ---------- */
-function spark(series) {
+function spark(series, smooth) {
   if (!series?.length) return '';
   const n = store.get('sparkN', 30), pts = series.slice(-n), vals = pts.map(p => p.total);
   const lo = Math.min(...vals), hi = Math.max(...vals), W = 300, H = 56;
   const X = i => (i * W / Math.max(1, pts.length - 1)).toFixed(1), Y = v => (hi === lo ? H / 2 : 6 + (H - 12) * (1 - (v - lo) / (hi - lo))).toFixed(1);
-  const line = vals.map((v, i) => `${i ? 'L' : 'M'}${X(i)} ${Y(v)}`).join(' '), diff = vals[vals.length - 1] - vals[0];
+  /* smooth: خط نرم با منحنی بین نقطه‌ها (سبک بانک مدرن) */
+  const line = smooth && vals.length > 2 ? vals.map((v, i) => !i ? `M${X(0)} ${Y(v)}` : `Q${X(i - 1)} ${Y(vals[i - 1])} ${((+X(i - 1) + +X(i)) / 2).toFixed(1)} ${((+Y(vals[i - 1]) + +Y(v)) / 2).toFixed(1)}`).join(' ') + ` L${X(vals.length - 1)} ${Y(vals[vals.length - 1])}`
+    : vals.map((v, i) => `${i ? 'L' : 'M'}${X(i)} ${Y(v)}`).join(' '), diff = vals[vals.length - 1] - vals[0];
   return `<div class="spark"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" style="stop-color:rgb(var(--acct));stop-opacity:.42"/><stop offset="1" style="stop-color:rgb(var(--acct));stop-opacity:0"/></linearGradient></defs>
     <path d="${line} L${W} ${H} L0 ${H} Z" fill="url(#sg)"/><path d="${line}" class="spl"/></svg>
@@ -1396,7 +1469,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v25';
+const VERSION = 'v28';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

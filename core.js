@@ -236,9 +236,14 @@ const Core = (() => {
     const use = c => S.tx.filter(t => t.categoryId === c.id && !t.deletedAt).length;
     return S.categories.filter(c => !c.archived).map(c => [use(c), c]).sort((a, b) => b[0] - a[0] || a[1].id - b[1].id).map(x => x[1]);
   };
+  /* شماره کارت: ۱۶ رقم با رقم کنترلی (Luhn). شبا: IR و ۲۴ رقم با باقی‌مانده‌ی ۹۷ (بدون BigInt برای WebView قدیمی) */
+  const cardOk = s => /^\d{16}$/.test(s ?? '') && [...s].reverse().reduce((t, d, i) => { let n = +d; if (i % 2) { n *= 2; if (n > 9) n -= 9; } return t + n; }, 0) % 10 === 0;
+  const ibanOk = s => /^IR\d{24}$/.test(s ?? '') && [...(s.slice(4) + '1827' + s.slice(2, 4))].reduce((r, d) => (r * 10 + +d) % 97, 0) === 1;
   function checkAccount(a) {
     if (!a.name?.trim()) throw bad('نام حساب را وارد کنید.');
     if (!['cash', 'bank'].includes(a.kind)) throw bad('نوع حساب نامعتبر است.');
+    if (a.cardNumber && !cardOk(a.cardNumber)) throw bad('شماره کارت درست نیست؛ ۱۶ رقم روی کارت را دوباره ببینید.');
+    if (a.iban && !ibanOk(a.iban)) throw bad('شماره شبا درست نیست؛ IR و ۲۴ رقم بعدش را دوباره ببینید.');
     if (!Number.isSafeInteger(a.openingBalance) || Math.abs(a.openingBalance) > MAX) throw bad('موجودی اولیه نامعتبر است.');
   }
   /* ---------- اشخاص: مانده‌ی مثبت یعنی شخص به شما بدهکار است (طلب شما) ---------- */
@@ -779,7 +784,7 @@ const Core = (() => {
     if (p.startsWith('/api/transactions/')) return commit(() => method === 'PUT' ? updateTx(id, body) : deleteTx(id));
     if (p === '/api/accounts') return commit(() => {
       checkAccount(body);
-      const a = { id: nextId(), name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance, business: !!body.business, archived: 0 };
+      const a = { id: nextId(), name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, cardNumber: body.kind === 'bank' && body.cardNumber || null, iban: body.kind === 'bank' && body.iban || null, openingBalance: body.openingBalance, business: !!body.business, archived: 0 };
       S.accounts.push(a); audit('create', 'account', a.id, null, a); return { id: a.id };
     });
     if (p.startsWith('/api/accounts/') && p.endsWith('/statement')) return statement(id);
@@ -796,7 +801,7 @@ const Core = (() => {
     });
     if (p.startsWith('/api/accounts/')) return commit(() => {
       const a = account(id); if (!a) throw bad('حساب پیدا نشد.');
-      if (method === 'PUT') { checkAccount(body); const before = { ...a }; Object.assign(a, { name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, openingBalance: body.openingBalance, business: !!body.business }); audit('update', 'account', id, before, a); }
+      if (method === 'PUT') { checkAccount(body); const before = { ...a }; Object.assign(a, { name: body.name.trim(), kind: body.kind, bankName: body.bankName, accountNumber: body.accountNumber, cardNumber: body.kind === 'bank' && body.cardNumber || null, iban: body.kind === 'bank' && body.iban || null, openingBalance: body.openingBalance, business: !!body.business }); audit('update', 'account', id, before, a); }
       else { if (balance(a) !== 0) throw bad('حساب مانده دارد؛ اول مانده را صفر کنید.'); a.archived = 1; audit('archive', 'account', id); }
     });
     if (p === '/api/categories') return commit(() => {
@@ -830,6 +835,6 @@ const Core = (() => {
     parse: (n, u) => { const m = unit.mul(u); return Number.isFinite(n) && n % m === 0 ? n / m : NaN; }
   };
 
-  return { unit, handle, lock, changePassword, checkPassword, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
+  return { unit, cardOk, ibanOk, handle, lock, changePassword, checkPassword, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
 })();
 if (typeof module !== 'undefined') module.exports = Core;

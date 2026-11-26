@@ -373,25 +373,46 @@ ol.hint{padding-inline-start:20px}
 .clip{font-size:12px;opacity:.8}
 .mask .sl .amtx{filter:none}
 
-/* کارت بانکی */
-.bcards{display:grid;gap:12px}
-.bcard{position:relative;display:grid;grid-template-columns:1fr auto;grid-template-areas:"bt bt" "bn bn" "bal bal" "bno bno";gap:2px;width:100%;aspect-ratio:1.75;max-height:210px;
-  padding:18px 20px;border-radius:22px;text-align:right;color:#fff;overflow:hidden;
-  background:radial-gradient(120% 90% at 0% 0%,rgb(255 255 255/.22),transparent 55%),linear-gradient(135deg,var(--c1),var(--c2));
-  border:1px solid rgb(255 255 255/.18);box-shadow:inset 0 1px 0 rgb(255 255 255/.35),0 16px 34px rgb(0 0 0/.45)}
-.bcard::before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;left:-90px;bottom:-150px;background:rgb(255 255 255/.08)}
-.bcard::after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;left:30px;bottom:-130px;background:rgb(255 255 255/.06)}
-.bcard>span{position:relative;z-index:1}
-.bt{grid-area:bt;display:flex;justify-content:space-between;align-items:center}
-.bt b{font-size:17px;letter-spacing:.3px}
-.chipg{width:42px;height:31px;border-radius:7px;background:linear-gradient(135deg,#f3dc8c,#b8902e 60%,#f1d27a);box-shadow:inset 0 0 0 1px rgb(0 0 0/.2)}
-.wal{font-style:normal;font-size:26px}
-.bn{grid-area:bn;font-size:14px;opacity:.85;margin-top:6px}
-.bcard .bal{grid-area:bal;font-size:28px;font-weight:800;align-self:end;margin-top:auto;text-shadow:0 2px 12px rgb(0 0 0/.3)}
-.bcard .bal small{font-size:13px;font-weight:400;opacity:.8}
+/* کارت بانکی: مثل کارت واقعی؛ با ↻ پشت کارت (شماره کارت، حساب و شبا با کپی) */
+.bcards{display:grid;gap:14px}
+.bcard{position:relative;display:block;width:100%;aspect-ratio:1.586;max-height:226px;border-radius:18px;text-align:right;color:#fff;overflow:hidden;cursor:pointer;
+  background:linear-gradient(135deg,var(--c1),var(--c2));border:1px solid rgb(255 255 255/.16);box-shadow:inset 0 1px 0 rgb(255 255 255/.3),0 14px 30px rgb(0 0 0/.35)}
+.bcard::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(130% 90% at 0 0,rgb(255 255 255/.2),transparent 50%),repeating-radial-gradient(circle at 110% 120%,transparent 0 16px,rgb(255 255 255/.045) 16px 17px)}
+.bcard:active{transform:scale(.985)}
+.bf{position:absolute;inset:0;padding:15px 18px;display:flex;flex-direction:column}
+.bf.back{display:none;padding:0}
+.bcard.flipped .front{display:none}
+.bcard.flipped .back{display:flex;animation:fade .25s both}
+.bt{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.bk{display:flex;align-items:center;gap:8px;min-width:0}
+.bk b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blg{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:14px;background:rgb(255 255 255/.92);color:var(--c2)}
+.bfl,.bacts button,.brow button{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:rgb(255 255 255/.18);color:#fff}
+.bfl svg,.bacts svg,.brow svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bacts{display:flex;gap:6px}
+.bmid{display:flex;align-items:center;gap:10px;margin-top:12px;direction:ltr}
+.chipg{width:44px;height:33px;border-radius:7px;position:relative;background:linear-gradient(135deg,#f6e09b,#c9a447 55%,#f0d686);box-shadow:inset 0 0 0 1px rgb(0 0 0/.18)}
+.chipg::before{content:"";position:absolute;inset:8px 0;border-top:1px solid rgb(0 0 0/.25);border-bottom:1px solid rgb(0 0 0/.25)}
+.chipg::after{content:"";position:absolute;inset:0 15px;border-left:1px solid rgb(0 0 0/.25);border-right:1px solid rgb(0 0 0/.25)}
+.nfc{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;opacity:.85}
+.wal{font-style:normal;font-size:28px}
+.cash .bnum{font-family:inherit;font-size:17px;letter-spacing:0}
+.bnum{margin-top:auto;direction:ltr;text-align:left;font:600 20px/1.2 ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:1.2px;text-shadow:0 1px 2px rgb(0 0 0/.25);white-space:nowrap;overflow:hidden}
+.bbot{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:10px}
+.bbot>span{min-width:0}
+.bbot small{display:block;font-size:10.5px;opacity:.75;font-weight:400}
+.bbot b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bcard .bal{text-align:left;font-size:19px;font-weight:800;white-space:nowrap;text-shadow:0 2px 12px rgb(0 0 0/.3)}
+.bcard .bal small{display:inline;font-size:12px}
+.bcard .bal small:first-child{display:block}
 .bcard .bal.neg{color:#ffd0d6}
-.bno{grid-area:bno;direction:ltr;text-align:left;font-size:15px;letter-spacing:2px;opacity:.85;font-variant-numeric:tabular-nums}
-.mask .bcard .bal{filter:blur(9px)}
+.back .bt{padding:12px 14px 0}
+.stripe{display:block;height:34px;margin:10px 0 6px;background:#111}
+.brow{display:flex;align-items:center;gap:6px;padding:3px 12px}
+.brow small{flex:none;width:58px;font-size:10.5px;opacity:.8}
+.brow code{flex:1;min-width:0;direction:ltr;text-align:left;font:600 11.5px ui-monospace,"SF Mono",Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow button{width:28px;height:28px}
+.mask .bcard .bal,.mask .bcard .bnum,.mask .bcard code{filter:blur(9px)}
 
 /* نمودار موجودی */
 .spark{position:relative;z-index:1;margin:12px -6px -4px}
@@ -703,6 +724,120 @@ ol.hint{padding-inline-start:20px}
 .msum .r b{font-weight:600;white-space:nowrap}
 .msum i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:6px;vertical-align:1px}
 .mask .msum b{filter:blur(8px)}
+/* سبک «بانک مدرن» (روشن و تیره): پایه همان قاعده‌های تخت سبک اپل، بعد سربرگ رنگی تمام‌عرض، موجودی بزرگ وسط، دکمه‌های گرد داخل سربرگ و نوار پایین شناور */
+:root[data-skin=modern]{color-scheme:light;--bg:#f4f4f8;--ink:#111118;--mute:#62626e;--line:rgb(0 0 0/.07);--glass:#fff;--card:#fff;--tabbg:#fff;--in:#15803d;--out:#d1213a;--soft:rgb(124 58 237/.1);--warn:#8a5300;--warn-bg:#fff3dc;--acc:124 58 237;--acc2:109 40 217;--accl:139 92 246;--acct:109 40 217;--glow:transparent}
+:root[data-skin=moderndark]{color-scheme:dark;--bg:#0b0b10;--ink:#fff;--mute:#9a9aa8;--line:rgb(255 255 255/.08);--glass:#16161d;--card:#16161d;--tabbg:#1c1c24;--in:#4ade80;--out:#ff7a85;--soft:rgb(139 92 246/.18);--warn:#ffd60a;--warn-bg:rgb(255 214 10/.12);--acc:139 92 246;--acc2:124 58 237;--accl:167 139 250;--acct:196 181 253;--glow:transparent}
+:root[data-skin=modern],:root[data-skin=moderndark]{background:var(--bg)}
+:root[data-skin=modern] #bg,:root[data-skin=moderndark] #bg{background:var(--bg)}
+:root[data-skin=modern] #bg i,:root[data-skin=moderndark] #bg i,:root[data-skin=modern] #bg::before,:root[data-skin=moderndark] #bg::before,:root[data-skin=modern] #bg::after,:root[data-skin=moderndark] #bg::after{display:none}
+:root[data-skin=modern] .card,:root[data-skin=moderndark] .card,:root[data-skin=modern] .list,:root[data-skin=moderndark] .list,:root[data-skin=modern] .panel,:root[data-skin=moderndark] .panel,:root[data-skin=modern] #tabs,:root[data-skin=moderndark] #tabs,:root[data-skin=modern] .auth,:root[data-skin=moderndark] .auth,:root[data-skin=modern] .actions button,:root[data-skin=moderndark] .actions button,:root[data-skin=modern] .ghost,:root[data-skin=moderndark] .ghost,:root[data-skin=modern] .rg,:root[data-skin=moderndark] .rg,:root[data-skin=modern] .banner,:root[data-skin=moderndark] .banner,:root[data-skin=modern] .chip,:root[data-skin=moderndark] .chip,:root[data-skin=modern] .calbox,:root[data-skin=moderndark] .calbox,:root[data-skin=modern] #toast,:root[data-skin=moderndark] #toast,:root[data-skin=modern] #done>div,:root[data-skin=moderndark] #done>div,:root[data-skin=modern] .cbox,:root[data-skin=moderndark] .cbox,:root[data-skin=modern] .fanm button,:root[data-skin=moderndark] .fanm button,:root[data-skin=modern] #sheet,:root[data-skin=moderndark] #sheet,:root[data-skin=modern] .insight,:root[data-skin=moderndark] .insight,:root[data-skin=modern] .streak,:root[data-skin=moderndark] .streak{-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-skin=modern] .card,:root[data-skin=moderndark] .card,:root[data-skin=modern] .list,:root[data-skin=moderndark] .list,:root[data-skin=modern] .auth,:root[data-skin=moderndark] .auth,:root[data-skin=modern] .rg,:root[data-skin=moderndark] .rg,:root[data-skin=modern] .insight,:root[data-skin=moderndark] .insight,:root[data-skin=modern] .streak,:root[data-skin=moderndark] .streak{background:var(--glass);border:0;box-shadow:none}
+:root[data-skin=modern] .card,:root[data-skin=moderndark] .card{border-radius:16px}
+:root[data-skin=modern] .list,:root[data-skin=moderndark] .list{border-radius:14px}
+:root[data-skin=modern] #view>h1,:root[data-skin=moderndark] #view>h1{font-size:32px;font-weight:700;letter-spacing:-.4px}
+:root[data-skin=modern] h2,:root[data-skin=moderndark] h2{color:var(--ink);font-size:20px;font-weight:700;letter-spacing:-.2px;margin:26px 4px 8px}
+:root[data-skin=modern] .panel h2,:root[data-skin=moderndark] .panel h2{font-size:17px}
+:root[data-skin=modern] .hero{background:linear-gradient(155deg,#1e3a8a,#1e40af 50%,#1d4ed8)!important;box-shadow:0 12px 26px rgb(29 78 216/.25)!important}
+:root[data-skin=moderndark] .hero{background:linear-gradient(155deg,#2c2c2e,#1c1c1e 55%,#111)!important;box-shadow:none!important;border:1px solid rgb(255 255 255/.08)!important}
+:root[data-skin=modern] .hero,:root[data-skin=moderndark] .hero{color:#fff;border-radius:20px;border:0}
+:root[data-skin=modern] .hero::before,:root[data-skin=moderndark] .hero::before,:root[data-skin=modern] .hero::after,:root[data-skin=moderndark] .hero::after{display:none}
+:root[data-skin=modern] .hero .big,:root[data-skin=moderndark] .hero .big{text-shadow:none;font-weight:700}
+:root[data-skin=modern] .hero .pos,:root[data-skin=moderndark] .hero .pos{color:#bbf7d0}
+:root[data-skin=modern] .hero .neg,:root[data-skin=moderndark] .hero .neg{color:#fecaca}
+:root[data-skin=modern] .stats .pos,:root[data-skin=moderndark] .stats .pos,:root[data-skin=modern] .stats .neg,:root[data-skin=moderndark] .stats .neg,:root[data-skin=modern] .hero .pos,:root[data-skin=moderndark] .hero .pos,:root[data-skin=modern] .hero .neg,:root[data-skin=moderndark] .hero .neg{text-shadow:none}
+:root[data-skin=modern] .hero .spl,:root[data-skin=moderndark] .hero .spl{stroke:#fff;filter:none}
+:root[data-skin=modern] .hero .spark stop,:root[data-skin=moderndark] .hero .spark stop{stop-color:#fff!important}
+:root[data-skin=modern] .hero .spk button,:root[data-skin=moderndark] .hero .spk button{color:rgb(255 255 255/.8)}
+:root[data-skin=modern] .maskbtn,:root[data-skin=moderndark] .maskbtn{background:rgb(255 255 255/.16);color:#fff}
+:root[data-skin=modern] .actions,:root[data-skin=moderndark] .actions{display:flex;justify-content:space-around;gap:0;margin-top:18px}
+:root[data-skin=modern] .actions button,:root[data-skin=moderndark] .actions button{flex:0 0 76px;min-height:0;padding:0;gap:7px;background:none!important;border:0!important;box-shadow:none!important;font-weight:500;font-size:13px;color:var(--ink)}
+:root[data-skin=modern] .actions svg,:root[data-skin=moderndark] .actions svg,:root[data-skin=modern] .actions [data-k] svg,:root[data-skin=moderndark] .actions [data-k] svg{width:56px;height:56px;padding:16px;border-radius:50%;background:var(--glass);color:rgb(var(--acc));filter:none}
+:root[data-skin=modern] .actions svg{box-shadow:0 1px 3px rgb(0 0 0/.08)}
+:root[data-skin=modern] .actions .a-out svg,:root[data-skin=moderndark] .actions .a-out svg{background:rgb(var(--acc));color:#fff}
+:root[data-skin=modern] .item,:root[data-skin=moderndark] .item,:root[data-skin=modern] .sw,:root[data-skin=moderndark] .sw{border-bottom-color:var(--line)}
+:root[data-skin=modern] .item:active,:root[data-skin=moderndark] .item:active{background:var(--soft)}
+:root[data-skin=modern] .ci,:root[data-skin=moderndark] .ci{width:34px;height:34px;border-radius:9px;border:0;box-shadow:none;background:var(--tile,hsl(var(--h) 62% 52%));color:#fff;font-size:17px}
+:root[data-skin=modern] .ci svg,:root[data-skin=moderndark] .ci svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:root[data-skin=modern] .ci.tr,:root[data-skin=moderndark] .ci.tr{background:rgb(var(--acc));color:#fff}
+:root[data-skin=modern] .dayhead,:root[data-skin=moderndark] .dayhead{background:transparent;border-bottom-color:var(--line);color:var(--mute)}
+:root[data-skin=modern] .dayhead b,:root[data-skin=moderndark] .dayhead b{color:var(--mute);font-weight:600}
+:root[data-skin=modern] #tabs,:root[data-skin=moderndark] #tabs{inset:auto 0 0 0;max-width:none;border-radius:0;padding:4px 0 env(safe-area-inset-bottom);background:var(--tabbg);border:0;border-top:.5px solid var(--line);box-shadow:none}
+:root[data-skin=modern] #tabs::before,:root[data-skin=moderndark] #tabs::before{display:none}
+:root[data-skin=modern] #tabs button,:root[data-skin=moderndark] #tabs button{height:54px;font-size:11px;font-weight:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+:root[data-skin=modern] #tabs button::before,:root[data-skin=moderndark] #tabs button::before{content:"";width:26px;height:26px;background:currentColor;-webkit-mask:var(--ti) center/contain no-repeat;mask:var(--ti) center/contain no-repeat}
+:root[data-skin=modern] #tabs [data-v=home],:root[data-skin=moderndark] #tabs [data-v=home]{--ti:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2028%2028%27%3E%3Cpath%20d%3D%27M4.5%2013%2014%205l9.5%208v10a1.5%201.5%200%200%201-1.5%201.5h-5V18h-6v6.5H6A1.5%201.5%200%200%201%204.5%2023Z%27%2F%3E%3C%2Fsvg%3E")}
+:root[data-skin=modern] #tabs [data-v=list],:root[data-skin=moderndark] #tabs [data-v=list]{--ti:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2028%2028%27%3E%3Cpath%20d%3D%27M10%207.5h13M10%2014h13M10%2020.5h13%27%20stroke%3D%27black%27%20stroke-width%3D%272.4%27%20stroke-linecap%3D%27round%27%2F%3E%3Ccircle%20cx%3D%275.5%27%20cy%3D%277.5%27%20r%3D%271.8%27%2F%3E%3Ccircle%20cx%3D%275.5%27%20cy%3D%2714%27%20r%3D%271.8%27%2F%3E%3Ccircle%20cx%3D%275.5%27%20cy%3D%2720.5%27%20r%3D%271.8%27%2F%3E%3C%2Fsvg%3E")}
+:root[data-skin=modern] #tabs [data-v=accounts],:root[data-skin=moderndark] #tabs [data-v=accounts]{--ti:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2028%2028%27%3E%3Crect%20x%3D%273.5%27%20y%3D%276.5%27%20width%3D%2721%27%20height%3D%2715%27%20rx%3D%273%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272.2%27%2F%3E%3Cpath%20d%3D%27M3.5%2011.5h21%27%20stroke%3D%27black%27%20stroke-width%3D%272.4%27%2F%3E%3C%2Fsvg%3E")}
+:root[data-skin=modern] #tabs [data-v=more],:root[data-skin=moderndark] #tabs [data-v=more]{--ti:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2028%2028%27%3E%3Ccircle%20cx%3D%277%27%20cy%3D%2714%27%20r%3D%272.2%27%2F%3E%3Ccircle%20cx%3D%2714%27%20cy%3D%2714%27%20r%3D%272.2%27%2F%3E%3Ccircle%20cx%3D%2721%27%20cy%3D%2714%27%20r%3D%272.2%27%2F%3E%3C%2Fsvg%3E")}
+:root[data-skin=modern] #tabs button.on,:root[data-skin=moderndark] #tabs button.on{color:rgb(var(--acc));font-weight:600}
+:root[data-skin=modern] .panel,:root[data-skin=moderndark] .panel{background:var(--bg);border:0;box-shadow:none;border-radius:14px 14px 0 0}
+:root[data-skin=modern] .panel::before,:root[data-skin=moderndark] .panel::before{background:var(--mute);opacity:.45}
+:root[data-skin=modern] #sheet,:root[data-skin=moderndark] #sheet{background:rgb(0 0 0/.35)}
+:root[data-skin=modern] .calbox,:root[data-skin=moderndark] .calbox{background:var(--glass);border:0;box-shadow:0 12px 40px rgb(0 0 0/.25)}
+:root[data-skin=modern] input,:root[data-skin=moderndark] input,:root[data-skin=modern] select,:root[data-skin=moderndark] select,:root[data-skin=modern] textarea,:root[data-skin=moderndark] textarea{background:var(--glass);border:1px solid transparent;box-shadow:none;border-radius:11px}
+:root[data-skin=modern] input:focus,:root[data-skin=moderndark] input:focus,:root[data-skin=modern] select:focus,:root[data-skin=moderndark] select:focus,:root[data-skin=modern] textarea:focus,:root[data-skin=moderndark] textarea:focus{border-color:rgb(var(--acc));box-shadow:0 0 0 3px rgb(var(--acc)/.18)}
+:root[data-skin=modern] select option,:root[data-skin=moderndark] select option{background:var(--glass)}
+:root[data-skin=modern] input::placeholder,:root[data-skin=moderndark] input::placeholder{color:var(--mute)}
+:root[data-skin=modern] .primary,:root[data-skin=moderndark] .primary{background:rgb(var(--acc));box-shadow:none;border-radius:14px;font-weight:600}
+:root[data-skin=modern] .primary::after,:root[data-skin=moderndark] .primary::after{display:none}
+:root[data-skin=modern] .ghost,:root[data-skin=moderndark] .ghost{background:var(--glass);border:0;border-radius:12px;color:rgb(var(--acct))}
+:root[data-skin=modern] .ghost.danger,:root[data-skin=moderndark] .ghost.danger{color:var(--out)}
+:root[data-skin=modern] .chip,:root[data-skin=moderndark] .chip{background:var(--glass);border:0;box-shadow:none}
+:root[data-skin=modern] .chip.on,:root[data-skin=moderndark] .chip.on,:root[data-skin=modern] #splitp .chip.on,:root[data-skin=moderndark] #splitp .chip.on,:root[data-skin=modern] .calgrid button.on,:root[data-skin=moderndark] .calgrid button.on,:root[data-skin=modern] .fanm button.main,:root[data-skin=moderndark] .fanm button.main,:root[data-skin=modern] .fabb,:root[data-skin=moderndark] .fabb,:root[data-skin=modern] .swa button,:root[data-skin=moderndark] .swa button,:root[data-skin=modern] .lockicon,:root[data-skin=moderndark] .lockicon{background:rgb(var(--acc));color:#fff;border:0;box-shadow:none}
+:root[data-skin=modern] .fabb,:root[data-skin=moderndark] .fabb{border-radius:50%;box-shadow:0 6px 16px rgb(0 0 0/.2)}
+:root[data-skin=modern] .fanm button,:root[data-skin=moderndark] .fanm button{background:var(--glass);color:var(--ink);border:0;box-shadow:0 6px 18px rgb(0 0 0/.16)}
+:root[data-skin=modern] .swa .d,:root[data-skin=moderndark] .swa .d{background:#ff3b30}
+:root[data-skin=modern] .lockicon svg,:root[data-skin=moderndark] .lockicon svg{stroke:#fff}
+:root[data-skin=modern] .auth h1 b,:root[data-skin=moderndark] .auth h1 b{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:rgb(var(--acct))}
+:root[data-skin=modern] .x,:root[data-skin=moderndark] .x,:root[data-skin=modern] .calhead button,:root[data-skin=moderndark] .calhead button,:root[data-skin=modern] .raw,:root[data-skin=moderndark] .raw{background:var(--line)}
+:root[data-skin=modern] #toast,:root[data-skin=moderndark] #toast{background:var(--glass);color:var(--ink);border:0;box-shadow:0 10px 30px rgb(0 0 0/.2)}
+:root[data-skin=modern] #toast .undo,:root[data-skin=moderndark] #toast .undo,:root[data-skin=modern] .tplc .go,:root[data-skin=moderndark] .tplc .go,:root[data-skin=modern] .evtpl .tq,:root[data-skin=moderndark] .evtpl .tq{background:var(--soft);border-color:transparent;color:rgb(var(--acct))}
+:root[data-skin=modern] .tplc .ed,:root[data-skin=moderndark] .tplc .ed{border-color:var(--line)}
+:root[data-skin=modern] #done>div,:root[data-skin=moderndark] #done>div,:root[data-skin=modern] .cbox,:root[data-skin=moderndark] .cbox{background:var(--glass);border:0;box-shadow:0 20px 50px rgb(0 0 0/.22)}
+:root[data-skin=modern] #done path,:root[data-skin=moderndark] #done path{stroke:var(--in)}
+:root[data-skin=modern] .banner,:root[data-skin=moderndark] .banner{border:0}
+:root[data-skin=modern] .banner.bank,:root[data-skin=moderndark] .banner.bank{background:var(--soft);color:rgb(var(--acct));box-shadow:none;animation:none}
+:root[data-skin=modern] .banner.wrapb,:root[data-skin=moderndark] .banner.wrapb{background:rgb(var(--acc));color:#fff}
+:root[data-skin=modern] .bar i,:root[data-skin=moderndark] .bar i,:root[data-skin=modern] .ring .rf,:root[data-skin=moderndark] .ring .rf,:root[data-skin=modern] .ring .rf.full,:root[data-skin=moderndark] .ring .rf.full,:root[data-skin=modern] .rg.over .rf,:root[data-skin=moderndark] .rg.over .rf,:root[data-skin=modern] .donut .s,:root[data-skin=moderndark] .donut .s,:root[data-skin=modern] .legend li i,:root[data-skin=moderndark] .legend li i,:root[data-skin=modern] .trend .in,:root[data-skin=moderndark] .trend .in,:root[data-skin=modern] .trend .ex,:root[data-skin=moderndark] .trend .ex,:root[data-skin=modern] .bulb,:root[data-skin=moderndark] .bulb,:root[data-skin=modern] .streak .fire,:root[data-skin=moderndark] .streak .fire,:root[data-skin=modern] .spl,:root[data-skin=moderndark] .spl,:root[data-skin=modern] .bdg.got span,:root[data-skin=moderndark] .bdg.got span,:root[data-skin=modern] .chip.accent i,:root[data-skin=moderndark] .chip.accent i,:root[data-skin=modern] #done circle,:root[data-skin=moderndark] #done circle,:root[data-skin=modern] .hd.has,:root[data-skin=moderndark] .hd.has{filter:none;box-shadow:none}
+:root[data-skin=modern] .streak .fire,:root[data-skin=moderndark] .streak .fire{animation:none}
+:root[data-skin=modern] .bar,:root[data-skin=moderndark] .bar,:root[data-skin=modern] .hd,:root[data-skin=moderndark] .hd,:root[data-skin=modern] .bdg,:root[data-skin=moderndark] .bdg{background:var(--line)}
+:root[data-skin=modern] .ring .rb,:root[data-skin=moderndark] .ring .rb,:root[data-skin=modern] .donut .bgc,:root[data-skin=moderndark] .donut .bgc{stroke:var(--line)}
+:root[data-skin=modern] .hd.has,:root[data-skin=moderndark] .hd.has{color:#fff}
+:root[data-skin=modern] .bdg,:root[data-skin=moderndark] .bdg{border-color:var(--line)}
+:root[data-skin=modern] .bdg.got,:root[data-skin=moderndark] .bdg.got{background:var(--glass);border:0}
+:root[data-skin=modern] .calc,:root[data-skin=moderndark] .calc,:root[data-skin=modern] .ops .op,:root[data-skin=moderndark] .ops .op,:root[data-skin=modern] .calgrid button.now,:root[data-skin=moderndark] .calgrid button.now{color:rgb(var(--acct))}
+:root[data-skin=modern] .skin,:root[data-skin=moderndark] .skin{background:var(--glass);border-color:var(--line)}
+:root[data-skin=modern] .skin.on,:root[data-skin=moderndark] .skin.on{border-color:rgb(var(--acc));box-shadow:0 0 0 2px rgb(var(--acc)/.4)}
+:root[data-skin=modern] .bcard{box-shadow:0 8px 20px rgb(0 0 0/.15)}
+:root[data-skin=modern] .card,:root[data-skin=moderndark] .card,:root[data-skin=modern] .list,:root[data-skin=moderndark] .list{border-radius:22px}
+:root[data-skin=modern] .card,:root[data-skin=modern] .list{box-shadow:0 4px 18px rgb(20 20 50/.06)}
+:root[data-skin=moderndark] .card,:root[data-skin=moderndark] .list{border:1px solid var(--line)}
+:root[data-skin=modern] .hero{background:linear-gradient(160deg,#4f46e5 0%,#7c3aed 55%,#c026d3 100%)!important;border-radius:0 0 30px 30px;box-shadow:0 10px 30px rgb(124 58 237/.25)!important}
+:root[data-skin=moderndark] .hero{background:radial-gradient(110% 70% at 85% 0,#6d28d9 0,transparent 72%),radial-gradient(75% 60% at 0 0,#2563eb 0,transparent 72%),#0b0b10!important;border:0!important;border-radius:0;box-shadow:none!important}
+:root[data-skin=modern] .hero,:root[data-skin=moderndark] .hero{margin:calc(-1 * (env(safe-area-inset-top) + 18px)) -16px 0;padding:calc(env(safe-area-inset-top) + 34px) 20px 26px;text-align:center}
+:root[data-skin=modern] .hero .lbl,:root[data-skin=moderndark] .hero .lbl{font-size:13.5px;opacity:.8}
+:root[data-skin=modern] .hero .big,:root[data-skin=moderndark] .hero .big{font-size:44px;font-weight:800;letter-spacing:-1px;line-height:1.2;margin-top:4px}
+:root[data-skin=modern] .hero .row,:root[data-skin=moderndark] .hero .row{justify-content:center;font-size:13px;opacity:.85}
+:root[data-skin=modern] .hero .bizk,:root[data-skin=moderndark] .hero .bizk{justify-content:center}
+:root[data-skin=modern] .maskbtn,:root[data-skin=moderndark] .maskbtn{top:calc(env(safe-area-inset-top) + 14px);left:16px;border-radius:50%;background:rgb(255 255 255/.18)}
+:root[data-skin=modern] .hero .actions,:root[data-skin=moderndark] .hero .actions{margin-top:22px;justify-content:space-evenly}
+:root[data-skin=modern] .hero .actions button,:root[data-skin=moderndark] .hero .actions button{color:#fff}
+:root[data-skin=modern] .hero .actions [data-k] svg,:root[data-skin=moderndark] .hero .actions [data-k] svg{background:rgb(255 255 255/.2);color:#fff;box-shadow:none}
+:root[data-skin=modern] .hero .actions .a-out svg,:root[data-skin=moderndark] .hero .actions .a-out svg{background:#fff;color:rgb(var(--acc2))}
+:root[data-skin=modern] .mchart,:root[data-skin=moderndark] .mchart{padding:14px 16px}
+:root[data-skin=modern] .mchart .spark,:root[data-skin=moderndark] .mchart .spark{margin:0 -4px}
+:root[data-skin=modern] .mchart .spark svg,:root[data-skin=moderndark] .mchart .spark svg{height:84px}
+:root[data-skin=modern] .mchart .spl,:root[data-skin=moderndark] .mchart .spl{stroke:rgb(var(--accl));stroke-width:2.5;filter:none}
+:root[data-skin=modern] .mchart .spk button,:root[data-skin=moderndark] .mchart .spk button{color:var(--mute)}
+:root[data-skin=modern] .mchart .spk button.on,:root[data-skin=moderndark] .mchart .spk button.on{background:var(--soft);color:rgb(var(--acct))}
+:root[data-skin=modern] #tabs,:root[data-skin=moderndark] #tabs{inset:auto 16px calc(env(safe-area-inset-bottom) + 12px) 16px;max-width:528px;border-radius:31px;padding:4px 6px;border-top:0}
+:root[data-skin=modern] #tabs{box-shadow:0 8px 24px rgb(20 20 50/.12)}
+:root[data-skin=moderndark] #tabs{border:1px solid rgb(255 255 255/.08)}
+:root[data-skin=modern] #tabs button,:root[data-skin=moderndark] #tabs button{height:52px}
+.mleg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;font-size:13px}
+.mleg span{display:block;color:var(--mute);font-size:12px}
+.mleg b{font-size:15px;white-space:nowrap}
+.mask .mleg b{filter:blur(8px)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }

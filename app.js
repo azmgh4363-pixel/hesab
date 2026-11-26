@@ -163,6 +163,7 @@ const noBiz = () => !!S.home?.hasBusiness && store.get('noBiz', false);
 const homeTotals = h => noBiz() ? h.personal : h;
 function viewHome() {
   if (luxeSkin()) return viewHomeLuxe();
+  if (bloomSkin()) return viewHomeBloom();
   const h = S.home, t = homeTotals(h), modern = modernSkin();
   const acts = `<div class="actions">
     <button class="a-out" data-act="new" data-k="expense">${ICON.expense}هزینه</button>
@@ -248,6 +249,65 @@ function viewHomeLuxe() {
   </div>
   <div class="lxh lxsec"><b>آخرین تراکنش‌ها</b><button class="lxmore" data-act="tab" data-v="list">مشاهده همه ‹</button></div>
   ${h.recent.length || S.queue.length ? `<div class="list">${queueRows()}${byDay(h.recent.slice(0, 6), t => txRow(t))}</div>` : `<div class="card empty">هنوز تراکنشی ثبت نشده است.</div>`}
+  ${wrapBanner(h)}${budgetRings(h)}${subsCard(h)}${insightCard(h)}`;
+}
+
+/* ---------- سبک «شکوفه»: آبی و یاسی روشن با تصویر کارت موجودی (bloom-art.webp، بریده از طرح کاربر) ---------- */
+const BLOOM_PAL = ['#1e3a8a', '#ec4899', '#a78bfa', '#38bdf8', '#f59e0b', '#94a3b8'];
+/* عدد کوتاه برای محور نمودار (به واحد نمایش): ۱۵۰M */
+const compactAmt = v => { const x = Core.unit.show(v, UNIT), a = Math.abs(x); return (x < 0 ? '−' : '') + (a >= 1e9 ? fa(+(a / 1e9).toFixed(1)) + 'B' : a >= 1e6 ? fa(Math.round(a / 1e6)) + 'M' : a >= 1e3 ? fa(Math.round(a / 1e3)) + 'K' : fa(a)); };
+function bloomTrend(series) {
+  if (!series?.length) return '';
+  const n = store.get('bloomN', 90), pts = series.slice(-n), vals = pts.map(p => p.total);
+  let lo = Math.min(...vals, 0), hi = Math.max(...vals); if (hi === lo) hi = lo + 1; hi += (hi - lo) * .45; // جای برچسب بالای نمودار
+  const W = 300, H = 130, X = i => i * W / Math.max(1, pts.length - 1), Y = v => 8 + (H - 16) * (1 - (v - lo) / (hi - lo));
+  const P2 = vals.map((v, i) => [X(i), Y(v)]);
+  const d = P2.map(([x, y], i) => !i ? `M${x.toFixed(1)} ${y.toFixed(1)}` : `Q${P2[i - 1][0].toFixed(1)} ${P2[i - 1][1].toFixed(1)} ${((P2[i - 1][0] + x) / 2).toFixed(1)} ${((P2[i - 1][1] + y) / 2).toFixed(1)}`).join(' ') + ` L${W} ${P2[P2.length - 1][1].toFixed(1)}`;
+  const top = vals.lastIndexOf(Math.max(...vals)), [tx, ty] = P2[top], tl = Math.min(Math.max(tx, 56), W - 56);
+  const dots = [...new Set([0, Math.round(pts.length / 4), Math.round(pts.length / 2), Math.round(pts.length * 3 / 4), top, pts.length - 1])].filter(i => i < pts.length)
+    .map(i => `<i class="bmdot" style="left:${(P2[i][0] * 100 / W).toFixed(1)}%;top:${(P2[i][1] * 100 / H).toFixed(1)}%"></i>`).join('');
+  const months = []; pts.forEach((p, i) => { const m = p.date.slice(5, 7); if (!i || m !== pts[i - 1].date.slice(5, 7)) months.push([i, Number(m)]); });
+  const step = Math.ceil(months.length / 4), ml = months.filter((_, k) => k % step === 0).map(([i, m]) => `<span style="left:${(X(i) * 100 / W).toFixed(1)}%">${MONTHS[m - 1]}</span>`).join('');
+  const per = [[90, '۳ ماه'], [180, '۶ ماه'], [365, '۱ سال']].map(([k, t]) => `<button type="button" class="${n === k ? 'on' : ''}" data-act="bloomn" data-n="${k}">${t}</button>`).join('');
+  return `<div class="card bmtrend"><div class="lxh"><b><i class="bmic">${SV('M5 20V10M10 20V4M15 20v-7M20 20v-11')}</i>روند مالی ${n === 365 ? 'یک سال' : fa(n / 30) + ' ماه'} اخیر</b><span class="bmper">${per}</span></div>
+    <div class="bmplot"><div class="bmy"><span>${compactAmt(Math.max(...vals))}</span><span>${compactAmt((Math.max(...vals) + lo) / 2)}</span><span>${compactAmt(lo)}</span></div>
+    <div class="bmchart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="bmf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b6fe0" stop-opacity=".45"/><stop offset="1" stop-color="#3b6fe0" stop-opacity=".03"/></linearGradient></defs>
+      ${[0, 1, 2, 3, 4].map(i => `<line x1="${W * i / 4}" x2="${W * i / 4}" y1="0" y2="${H}" class="bmgl"/>`).join('')}${[0, 1, 2].map(i => `<line x1="0" x2="${W}" y1="${(8 + (H - 16) * i / 2).toFixed(1)}" y2="${(8 + (H - 16) * i / 2).toFixed(1)}" class="bmgl"/>`).join('')}
+      <path d="${d} L${W} ${H} L0 ${H} Z" fill="url(#bmf)"/><path d="${d}" class="bmln"/></svg>${dots}
+      <span class="bmtip amtx" style="left:${(tl * 100 / W).toFixed(1)}%;top:${(ty * 100 / H).toFixed(1)}%">${money(Math.max(...vals))}<small>${unitName()}</small></span>
+      <div class="bmx">${ml}</div></div></div></div>`;
+}
+function viewHomeBloom() {
+  const h = S.home, t = homeTotals(h), total = t.cash + t.bank;
+  const ser = t.series ?? [], ago = ser.length > 30 ? ser[ser.length - 31].total : ser[0]?.total ?? total, diff = total - ago;
+  const pct = ago > 0 ? Math.round(diff * 1000 / ago) / 10 : null;
+  const delta = `<span class="lxd ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '▲' : '▼'} ${pct !== null ? (diff >= 0 ? '+' : '−') + fa(Math.abs(pct)).replace('.', '٫') + '٪' : `<b class="amtx">${money(Math.abs(diff))}</b>`}</span> <small>نسبت به ماه قبل</small>`;
+  const banks = h.accounts.filter(a => a.kind === 'bank').length, pend = Number(h.pending) || 0;
+  const accs = h.accounts.slice(0, 4).map(a => `<button class="lxacc" data-act="stmt" data-id="${a.id}"><i class="ci" style="--tile:${a.kind === 'cash' ? '#38bdf8' : a.business ? '#6366f1' : '#ef4444'}">${a.kind === 'cash' ? CAT_SVG['👛'][1] : CAT_SVG['🏦'][1]}</i><span><small>${esc(a.name)}</small><b class="amtx ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</b></span></button>`).join('');
+  const tile = (act, k, label, icon) => `<button class="bmt" data-act="${act}"${k ? ` data-k="${k}"` : ''}><i>${icon}</i>${label}</button>`;
+  $('#view').innerHTML = `
+  <div class="bmhead"><div class="bmme"><i class="bmav">${SV('M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM3.5 21a8.5 8.5 0 0 1 17 0')}</i><span><b>سلام 👋</b><small>خوش آمدید به حساب من</small></span></div>
+    <span class="bmicons"><button class="bmround" data-act="inbox" aria-label="پیامک‌های بانک">${SV('M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15ZM10 20a2 2 0 0 0 4 0')}${pend ? `<em>${fa(pend)}</em>` : ''}</button>
+    <button class="bmround" data-act="tab" data-v="more" aria-label="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></span></div>
+  <div class="card hero bmhero"><img class="bmart" src="bloom-art.webp" alt="" aria-hidden="true">
+    <div class="bmtext"><div class="lbl"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button>وضعیت مالی شما${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
+    <div class="big" data-count="${total}">${money(total)}</div><div class="bmunit">${unitName()}</div>
+    <div class="bmdelta">${delta}</div></div>
+    ${h.hasBusiness ? `<div class="spk bizk"><span></span><span><button type="button" class="${noBiz() ? '' : 'on'}" data-act="biz" data-v="0">همه</button><button type="button" class="${noBiz() ? 'on' : ''}" data-act="biz" data-v="1">بدون کسب‌وکار</button></span></div>` : ''}</div>
+  ${queueBanner()}
+  <div class="bmtiles">${tile('report', '', 'گزارش‌ها', SV('M4 20h16M7 17v-5M12 17V7M17 17v-8'))}${tile('new', 'expense', 'هزینه', SV('M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4'))}
+    ${tile('new', 'income', 'درآمد', SV('M12 4v11M7 10l5 5 5-5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4'))}${tile('receipt', '', 'عکس رسید', SV('M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 9h8M8 12h8M8 15h5'))}</div>
+  <button class="card bmbank" data-act="inbox"><i class="bmbk">${SV('M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18')}</i>
+    <span><b>${banks ? fa(banks) + ' حساب بانکی در برنامه' : 'حساب بانکی تعریف نشده'}</b><small>${pend ? fa(pend) + ' پیامک بانک منتظر تأیید است' : 'پیامک‌های بانک را این‌جا وارد کنید'}</small></span><i class="bmgo">‹</i></button>
+  ${homeTemplates(h)}${homeDue(h)}
+  ${bloomTrend(t.series)}
+  <div class="lxsplit">
+    <div class="card lxcol"><div class="lxh"><b>تجزیه و تحلیل هزینه‌ها</b></div>${h.cats?.length ? donut(h.cats.slice(0, 3).concat(h.cats.length > 3 ? [{ name: null, amount: h.cats.slice(3).reduce((s, x) => s + x.amount, 0) }] : []).filter(x => x.amount), 'هزینه', BLOOM_PAL) : '<p class="hint">این ماه خرجی نیست.</p>'}
+      <button class="lxmore" data-act="report">مشاهده جزئیات ‹</button></div>
+    <div class="card lxcol"><div class="lxh"><b>حساب‌های شما</b></div><div class="lxaccs">${accs}</div><button class="lxmore" data-act="tab" data-v="accounts">مدیریت حساب‌ها</button></div>
+  </div>
+  <div class="card bmrecent"><div class="lxh"><b><i class="bmic">${SV('M12 7v5l3 2M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4h4')}</i>آخرین تراکنش‌ها</b><button class="lxmore" data-act="tab" data-v="list">مشاهده همه ←</button></div>
+  ${h.recent.length || S.queue.length ? `<div class="list">${queueRows()}${byDay(h.recent.slice(0, 6), t => txRow(t))}</div>` : `<div class="empty">هنوز تراکنشی ثبت نشده است.</div>`}</div>
   ${wrapBanner(h)}${budgetRings(h)}${subsCard(h)}${insightCard(h)}`;
 }
 
@@ -893,7 +953,8 @@ const appleSkin = () => /^apple/.test(document.documentElement.dataset.skin || '
 const modernSkin = () => /^modern/.test(document.documentElement.dataset.skin || '');
 /* سبک‌هایی که به‌جای ایموجی نماد خطی دارند */
 const luxeSkin = () => document.documentElement.dataset.skin === 'luxe';
-const lineSkin = () => appleSkin() || modernSkin() || luxeSkin();
+const bloomSkin = () => document.documentElement.dataset.skin === 'bloom';
+const lineSkin = () => appleSkin() || modernSkin() || luxeSkin() || bloomSkin();
 const CS = (c, d) => [c, `<svg viewBox="0 0 24 24">${d}</svg>`];
 const CAT_SVG = {
   '💼': CS('#34c759', '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>'),
@@ -1208,7 +1269,7 @@ const SKINS = [['classic', 'کلاسیک', '#05080f', 'linear-gradient(135deg,#0
   ['neon', 'نئون', '#000000', 'linear-gradient(135deg,#00fff0,#ff00c8)'], ['gold', 'طلایی لوکس', '#070707', 'linear-gradient(135deg,#f8e6ba,#b8913f)'],
   ['light', 'روشن پاستلی', '#f3f1ff', 'linear-gradient(135deg,#d9d0ff,#ffd6e8,#cdeffd)'], ['aurora', 'رنگین', '#0a0614', 'linear-gradient(135deg,#f72585,#7209b7,#4361ee)'],
   ['apple', 'اپل روشن', '#f2f2f7', 'linear-gradient(135deg,#f2f2f7 55%,#007aff 55%)'], ['appledark', 'اپل تیره', '#000000', 'linear-gradient(135deg,#1c1c1e 55%,#0a84ff 55%)'],
-  ['modern', 'بانک مدرن', '#4f46e5', 'linear-gradient(160deg,#4f46e5,#7c3aed 55%,#c026d3)'], ['luxe', 'طلایی شب', '#050505', 'linear-gradient(135deg,#050505 40%,#f5be46 75%,#7a5310)'], ['moderndark', 'بانک مدرن تیره', '#0b0b10', 'radial-gradient(120% 90% at 85% 0,#6d28d9,transparent 70%),radial-gradient(80% 70% at 0 0,#2563eb,transparent 70%),#0b0b10']];
+  ['modern', 'بانک مدرن', '#4f46e5', 'linear-gradient(160deg,#4f46e5,#7c3aed 55%,#c026d3)'], ['luxe', 'طلایی شب', '#050505', 'linear-gradient(135deg,#050505 40%,#f5be46 75%,#7a5310)'], ['bloom', 'شکوفه', '#e9ecfb', 'linear-gradient(135deg,#eef0fb 35%,#1e3a8a 60%,#f9a8d4)'], ['moderndark', 'بانک مدرن تیره', '#0b0b10', 'radial-gradient(120% 90% at 85% 0,#6d28d9,transparent 70%),radial-gradient(80% 70% at 0 0,#2563eb,transparent 70%),#0b0b10']];
 function setSkin(k) {
   const s = SKINS.find(x => x[0] === k) ?? SKINS[0];
   document.documentElement.dataset.skin = s[0];
@@ -1508,6 +1569,8 @@ Object.assign(actions, {
     f.classList.toggle('open', open); b.setAttribute('aria-expanded', String(open));
   },
   spark(b) { store.set('sparkN', Number(b.dataset.n)); render(); },
+  bloomn(b) { store.set('bloomN', Number(b.dataset.n)); render(); },
+  receipt() { txForm('expense'); $('#phf')?.click(); },
   biz(b) { store.set('noBiz', b.dataset.v === '1'); render(); },
   async subadd(b) {
     const x = (S.home.subs ?? []).find(s => s.key === b.dataset.k); if (!x) return;
@@ -1528,7 +1591,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v29';
+const VERSION = 'v30';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

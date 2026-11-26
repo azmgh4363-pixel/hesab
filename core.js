@@ -473,7 +473,7 @@ const Core = (() => {
     return { today, cash: total('cash'), bank: total('bank'), income, expense, net: income - expense, backupDue, lastBackup: S.lastBackup,
       pending: S.events.filter(e => e.status === 'pending').length, accounts: list, categories: categories(), recent: txRows({}, 8), checks: balanceChecks(),
       people: people(), templates: S.templates, recurring: S.recurring, due: dueList(today), budgets,
-      series: series(today), hasBusiness, personal: hasBusiness ? { cash: total('cash', true), bank: total('bank', true), series: series(today, 90, mine) } : null, subs: subs(today), badges: badges(today, noSpend(today)),
+      series: series(today, 365), hasBusiness, personal: hasBusiness ? { cash: total('cash', true), bank: total('bank', true), series: series(today, 365, mine) } : null, subs: subs(today), badges: badges(today, noSpend(today)),
       noSpend: noSpend(today), budgetAll: S.categories.filter(c => c.budget && !c.archived).map(c => ({ id: c.id, name: c.name, budget: c.budget, spent: mt.by.get(c.id) ?? 0 })),
       cats, prevToDate: monthTotals(prevMonth(today.slice(0, 7)), today.slice(8)).expense, trend: trend(today.slice(0, 7)), goals: S.goals };
   }

@@ -1,7 +1,7 @@
 // همه‌ی فایل‌های برنامه روی گوشی نگه داشته می‌شوند تا بدون اینترنت باز شود.
 // هر نسخه یک‌جا و مستقیم از سایت گرفته می‌شود (نه از حافظه‌ی میانی)؛ با هر تغییر فایل‌ها این شماره و VERSION در app.js با هم عوض شوند.
-const CACHE = 'hesab-v29';
-const SHELL = ['./', 'core.js', 'app.js', 'inbox.js', 'license.js', 'licenseui.js', 'weblicense.js', 'app.css', 'manifest.webmanifest', 'icon-180.png'];
+const CACHE = 'hesab-v30';
+const SHELL = ['./', 'core.js', 'app.js', 'inbox.js', 'license.js', 'licenseui.js', 'weblicense.js', 'app.css', 'manifest.webmanifest', 'icon-180.png', 'bloom-art.webp'];
 self.addEventListener('install', e => e.waitUntil((async () => {
   const files = await Promise.all(SHELL.map(async u => {
     const r = await fetch(u + '?v=' + CACHE, { cache: 'reload' });

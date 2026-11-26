@@ -3,7 +3,7 @@
 const HesabLicense = {
   TRIAL: 14 * 864e5,
   LEGACY_BEFORE: Date.UTC(2026, 10, 28, 20, 30), // دفترهای نسخه‌های فروخته‌شده پیش از لایسنس (تا پایان ۷ آذر ۱۴۰۵)
-  GRACE: Date.UTC(2027, 0, 20, 20, 30), // مهلت ثابت همان‌ها: پایان ۳۰ دی ۱۴۰۵
+  GRACE: Date.UTC(2026, 11, 9, 20, 30), // مهلت ثابت همان‌ها: پایان ۱۸ آذر ۱۴۰۵ (کمتر از ۱۴ روز از نصب نمی‌شود)
   /* i: وضعیت گوشی از برنامه؛ b: {start, seen, created} از خود دفتر */
   evaluate(i, b = {}) {
     if (!i?.configured) return { state: 'off', locked: false };

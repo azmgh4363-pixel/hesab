@@ -44,7 +44,7 @@ function showCard() {
   const dep = e.direction === 'deposit', sug = e.suggestion;
   const banks = S.home.accounts.filter(a => a.kind === 'bank');
   const accOpts = sel => `<option value=""></option>` + S.home.accounts.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
-  const matches = e.matches.map(m => `<button class="ghost" data-act="evmatch" data-id="${m.id}">همان ${KIND[m.kind]} ثبت‌شده است: ${esc(m.description || m.categoryName || '')} (${fa(m.date)})${m.fee ? ` · کارمزد ${money(m.fee)} تومان جدا ثبت می‌شود` : ''}</button>`).join('');
+  const matches = e.matches.map(m => `<button class="ghost" data-act="evmatch" data-id="${m.id}">همان ${KIND[m.kind]} ثبت‌شده است: ${esc(m.description || m.categoryName || '')} (${fa(m.date)})${m.fee ? ` · کارمزد ${money(m.fee)} ${unitName()} جدا ثبت می‌شود` : ''}</button>`).join('');
   /* ثبت آماده‌های هم‌جهت (برداشت = هزینه، واریز = درآمد) با دسته‌ی عادی */
   const kind = dep ? 'income' : 'expense';
   const tpls = (S.home.templates ?? []).filter(t => t.kind === kind && ['pnl', 'neutral'].includes(S.home.categories.find(c => c.id === t.categoryId)?.nature))
@@ -52,7 +52,7 @@ function showCard() {
   const grp = groupOf(e, sug?.purpose);
   box.innerHTML = `${S.events.length > 1 ? `<button type="button" class="ghost" data-act="evlist">→ همه‌ی تراکنش‌های منتظر (${fa(S.events.length)})</button>` : ''}<form class="card" id="evf" novalidate>
     <p class="hint">این تراکنش را مشخص کنید.</p>
-    <div class="evamt ${dep ? 'pos' : 'neg'}">${dep ? '+' : '−'}${money(e.amount)} <span class="unit">تومان</span></div>
+    <div class="evamt ${dep ? 'pos' : 'neg'}">${dep ? '+' : '−'}${money(e.amount)} <span class="unit">${unitName()}</span></div>
     <div class="hint">${dep ? 'واریز' : 'برداشت'} · ${fa(e.date)}${e.time ? ' · ' + fa(e.time) : ''}</div>
     <details><summary>متن پیامک</summary><div class="raw">${esc(e.rawText)}</div></details>
     <label for="eacc">حساب بانکی</label><select id="eacc">${accOpts(e.accountId)}</select>

@@ -609,6 +609,100 @@ ol.hint{padding-inline-start:20px}
 :root[data-skin=aurora] .lockicon{background:linear-gradient(135deg,#f72585,#7209b7);border:0}
 :root[data-skin=aurora] .auth h1 b{background:linear-gradient(90deg,#ff7ab6,#6a8bff);-webkit-background-clip:text;background-clip:text}
 
+/* سبک «اپل» (روشن و تیره): تخت، بی‌نور و بدون blur و انیمیشن زمینه تا روی گوشی‌های ضعیف هم روان باشد */
+:root[data-skin=apple]{color-scheme:light;--bg:#f2f2f7;--ink:#000;--mute:#6e6e73;--line:rgb(60 60 67/.14);--glass:#fff;--card:#fff;--tabbg:rgb(249 249 249/.97);--in:#1f7a35;--out:#d70015;--soft:rgb(0 122 255/.1);--warn:#8a5300;--warn-bg:#fff3dc;--acc:0 122 255;--acc2:0 100 215;--accl:0 122 255;--acct:0 98 204;--glow:transparent}
+:root[data-skin=appledark]{color-scheme:dark;--bg:#000;--ink:#fff;--mute:#98989f;--line:rgb(84 84 88/.55);--glass:#1c1c1e;--card:#1c1c1e;--tabbg:rgb(22 22 24/.97);--in:#30d158;--out:#ff6961;--soft:rgb(10 132 255/.18);--warn:#ffd60a;--warn-bg:rgb(255 214 10/.12);--acc:10 132 255;--acc2:0 110 230;--accl:64 156 255;--acct:100 170 255;--glow:transparent}
+:root[data-skin=apple],:root[data-skin=appledark]{background:var(--bg)}
+:root[data-skin=apple] #bg,:root[data-skin=appledark] #bg{background:var(--bg)}
+:root[data-skin=apple] #bg i,:root[data-skin=appledark] #bg i,:root[data-skin=apple] #bg::before,:root[data-skin=appledark] #bg::before,:root[data-skin=apple] #bg::after,:root[data-skin=appledark] #bg::after{display:none}
+:root[data-skin=apple] .card,:root[data-skin=appledark] .card,:root[data-skin=apple] .list,:root[data-skin=appledark] .list,:root[data-skin=apple] .panel,:root[data-skin=appledark] .panel,:root[data-skin=apple] #tabs,:root[data-skin=appledark] #tabs,:root[data-skin=apple] .auth,:root[data-skin=appledark] .auth,:root[data-skin=apple] .actions button,:root[data-skin=appledark] .actions button,:root[data-skin=apple] .ghost,:root[data-skin=appledark] .ghost,:root[data-skin=apple] .rg,:root[data-skin=appledark] .rg,:root[data-skin=apple] .banner,:root[data-skin=appledark] .banner,:root[data-skin=apple] .chip,:root[data-skin=appledark] .chip,:root[data-skin=apple] .calbox,:root[data-skin=appledark] .calbox,:root[data-skin=apple] #toast,:root[data-skin=appledark] #toast,:root[data-skin=apple] #done>div,:root[data-skin=appledark] #done>div,:root[data-skin=apple] .cbox,:root[data-skin=appledark] .cbox,:root[data-skin=apple] .fanm button,:root[data-skin=appledark] .fanm button,:root[data-skin=apple] #sheet,:root[data-skin=appledark] #sheet,:root[data-skin=apple] .insight,:root[data-skin=appledark] .insight,:root[data-skin=apple] .streak,:root[data-skin=appledark] .streak{-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-skin=apple] .card,:root[data-skin=appledark] .card,:root[data-skin=apple] .list,:root[data-skin=appledark] .list,:root[data-skin=apple] .auth,:root[data-skin=appledark] .auth,:root[data-skin=apple] .rg,:root[data-skin=appledark] .rg,:root[data-skin=apple] .insight,:root[data-skin=appledark] .insight,:root[data-skin=apple] .streak,:root[data-skin=appledark] .streak{background:var(--glass);border:0;box-shadow:none}
+:root[data-skin=apple] .card,:root[data-skin=appledark] .card{border-radius:16px}
+:root[data-skin=apple] .list,:root[data-skin=appledark] .list{border-radius:14px}
+:root[data-skin=apple] #view>h1,:root[data-skin=appledark] #view>h1{font-size:32px;font-weight:700;letter-spacing:-.4px}
+:root[data-skin=apple] h2,:root[data-skin=appledark] h2{color:var(--ink);font-size:20px;font-weight:700;letter-spacing:-.2px;margin:26px 4px 8px}
+:root[data-skin=apple] .panel h2,:root[data-skin=appledark] .panel h2{font-size:17px}
+:root[data-skin=apple] .hero{background:linear-gradient(155deg,#1e3a8a,#1e40af 50%,#1d4ed8)!important;box-shadow:0 12px 26px rgb(29 78 216/.25)!important}
+:root[data-skin=appledark] .hero{background:linear-gradient(155deg,#2c2c2e,#1c1c1e 55%,#111)!important;box-shadow:none!important;border:1px solid rgb(255 255 255/.08)!important}
+:root[data-skin=apple] .hero,:root[data-skin=appledark] .hero{color:#fff;border-radius:20px;border:0}
+:root[data-skin=apple] .hero::before,:root[data-skin=appledark] .hero::before,:root[data-skin=apple] .hero::after,:root[data-skin=appledark] .hero::after{display:none}
+:root[data-skin=apple] .hero .big,:root[data-skin=appledark] .hero .big{text-shadow:none;font-weight:700}
+:root[data-skin=apple] .hero .pos,:root[data-skin=appledark] .hero .pos{color:#bbf7d0}
+:root[data-skin=apple] .hero .neg,:root[data-skin=appledark] .hero .neg{color:#fecaca}
+:root[data-skin=apple] .stats .pos,:root[data-skin=appledark] .stats .pos,:root[data-skin=apple] .stats .neg,:root[data-skin=appledark] .stats .neg,:root[data-skin=apple] .hero .pos,:root[data-skin=appledark] .hero .pos,:root[data-skin=apple] .hero .neg,:root[data-skin=appledark] .hero .neg{text-shadow:none}
+:root[data-skin=apple] .hero .spl,:root[data-skin=appledark] .hero .spl{stroke:#fff;filter:none}
+:root[data-skin=apple] .hero .spark stop,:root[data-skin=appledark] .hero .spark stop{stop-color:#fff!important}
+:root[data-skin=apple] .hero .spk button,:root[data-skin=appledark] .hero .spk button{color:rgb(255 255 255/.8)}
+:root[data-skin=apple] .maskbtn,:root[data-skin=appledark] .maskbtn{background:rgb(255 255 255/.16);color:#fff}
+:root[data-skin=apple] .actions,:root[data-skin=appledark] .actions{display:flex;justify-content:space-around;gap:0;margin-top:18px}
+:root[data-skin=apple] .actions button,:root[data-skin=appledark] .actions button{flex:0 0 76px;min-height:0;padding:0;gap:7px;background:none!important;border:0!important;box-shadow:none!important;font-weight:500;font-size:13px;color:var(--ink)}
+:root[data-skin=apple] .actions svg,:root[data-skin=appledark] .actions svg,:root[data-skin=apple] .actions [data-k] svg,:root[data-skin=appledark] .actions [data-k] svg{width:56px;height:56px;padding:16px;border-radius:50%;background:var(--glass);color:rgb(var(--acc));filter:none}
+:root[data-skin=apple] .actions svg{box-shadow:0 1px 3px rgb(0 0 0/.08)}
+:root[data-skin=apple] .actions .a-out svg,:root[data-skin=appledark] .actions .a-out svg{background:rgb(var(--acc));color:#fff}
+:root[data-skin=apple] .item,:root[data-skin=appledark] .item,:root[data-skin=apple] .sw,:root[data-skin=appledark] .sw{border-bottom-color:var(--line)}
+:root[data-skin=apple] .item:active,:root[data-skin=appledark] .item:active{background:var(--soft)}
+:root[data-skin=apple] .ci,:root[data-skin=appledark] .ci{width:34px;height:34px;border-radius:9px;border:0;box-shadow:none;background:var(--tile,hsl(var(--h) 62% 52%));color:#fff;font-size:17px}
+:root[data-skin=apple] .ci svg,:root[data-skin=appledark] .ci svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:root[data-skin=apple] .ci.tr,:root[data-skin=appledark] .ci.tr{background:rgb(var(--acc));color:#fff}
+:root[data-skin=apple] .dayhead,:root[data-skin=appledark] .dayhead{background:transparent;border-bottom-color:var(--line);color:var(--mute)}
+:root[data-skin=apple] .dayhead b,:root[data-skin=appledark] .dayhead b{color:var(--mute);font-weight:600}
+:root[data-skin=apple] #tabs,:root[data-skin=appledark] #tabs{inset:auto 0 0 0;max-width:none;border-radius:0;padding:4px 0 env(safe-area-inset-bottom);background:var(--tabbg);border:0;border-top:.5px solid var(--line);box-shadow:none}
+:root[data-skin=apple] #tabs::before,:root[data-skin=appledark] #tabs::before{display:none}
+:root[data-skin=apple] #tabs button,:root[data-skin=appledark] #tabs button{height:54px;font-size:11px;font-weight:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+:root[data-skin=apple] #tabs button::before,:root[data-skin=appledark] #tabs button::before{content:"";width:26px;height:26px;background:currentColor;-webkit-mask:var(--ti) center/contain no-repeat;mask:var(--ti) center/contain no-repeat}
+:root[data-skin=apple] #tabs [data-v=home],:root[data-skin=appledark] #tabs [data-v=home]{--ti:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2028%2028%27%3E%3Cpath%20d%3D%27M4.5%2013%2014%205l9.5%208v10a1.5%201.5%200%200%201-1.5%201.5h-5V18h-6v6.5H6A1.5%201.5%200%200%201%204.5%2023Z%27%2F%3E%3C%2Fsvg%3E")}
+:root[data-skin=apple] #tabs [data-v=list],:root[data-skin=appledark] #tabs [data-v=list]{--ti:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2028%2028%27%3E%3Cpath%20d%3D%27M10%207.5h13M10%2014h13M10%2020.5h13%27%20stroke%3D%27black%27%20stroke-width%3D%272.4%27%20stroke-linecap%3D%27round%27%2F%3E%3Ccircle%20cx%3D%275.5%27%20cy%3D%277.5%27%20r%3D%271.8%27%2F%3E%3Ccircle%20cx%3D%275.5%27%20cy%3D%2714%27%20r%3D%271.8%27%2F%3E%3Ccircle%20cx%3D%275.5%27%20cy%3D%2720.5%27%20r%3D%271.8%27%2F%3E%3C%2Fsvg%3E")}
+:root[data-skin=apple] #tabs [data-v=accounts],:root[data-skin=appledark] #tabs [data-v=accounts]{--ti:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2028%2028%27%3E%3Crect%20x%3D%273.5%27%20y%3D%276.5%27%20width%3D%2721%27%20height%3D%2715%27%20rx%3D%273%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272.2%27%2F%3E%3Cpath%20d%3D%27M3.5%2011.5h21%27%20stroke%3D%27black%27%20stroke-width%3D%272.4%27%2F%3E%3C%2Fsvg%3E")}
+:root[data-skin=apple] #tabs [data-v=more],:root[data-skin=appledark] #tabs [data-v=more]{--ti:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2028%2028%27%3E%3Ccircle%20cx%3D%277%27%20cy%3D%2714%27%20r%3D%272.2%27%2F%3E%3Ccircle%20cx%3D%2714%27%20cy%3D%2714%27%20r%3D%272.2%27%2F%3E%3Ccircle%20cx%3D%2721%27%20cy%3D%2714%27%20r%3D%272.2%27%2F%3E%3C%2Fsvg%3E")}
+:root[data-skin=apple] #tabs button.on,:root[data-skin=appledark] #tabs button.on{color:rgb(var(--acc));font-weight:600}
+:root[data-skin=apple] .panel,:root[data-skin=appledark] .panel{background:var(--bg);border:0;box-shadow:none;border-radius:14px 14px 0 0}
+:root[data-skin=apple] .panel::before,:root[data-skin=appledark] .panel::before{background:var(--mute);opacity:.45}
+:root[data-skin=apple] #sheet,:root[data-skin=appledark] #sheet{background:rgb(0 0 0/.35)}
+:root[data-skin=apple] .calbox,:root[data-skin=appledark] .calbox{background:var(--glass);border:0;box-shadow:0 12px 40px rgb(0 0 0/.25)}
+:root[data-skin=apple] input,:root[data-skin=appledark] input,:root[data-skin=apple] select,:root[data-skin=appledark] select,:root[data-skin=apple] textarea,:root[data-skin=appledark] textarea{background:var(--glass);border:1px solid transparent;box-shadow:none;border-radius:11px}
+:root[data-skin=apple] input:focus,:root[data-skin=appledark] input:focus,:root[data-skin=apple] select:focus,:root[data-skin=appledark] select:focus,:root[data-skin=apple] textarea:focus,:root[data-skin=appledark] textarea:focus{border-color:rgb(var(--acc));box-shadow:0 0 0 3px rgb(var(--acc)/.18)}
+:root[data-skin=apple] select option,:root[data-skin=appledark] select option{background:var(--glass)}
+:root[data-skin=apple] input::placeholder,:root[data-skin=appledark] input::placeholder{color:var(--mute)}
+:root[data-skin=apple] .primary,:root[data-skin=appledark] .primary{background:rgb(var(--acc));box-shadow:none;border-radius:14px;font-weight:600}
+:root[data-skin=apple] .primary::after,:root[data-skin=appledark] .primary::after{display:none}
+:root[data-skin=apple] .ghost,:root[data-skin=appledark] .ghost{background:var(--glass);border:0;border-radius:12px;color:rgb(var(--acct))}
+:root[data-skin=apple] .ghost.danger,:root[data-skin=appledark] .ghost.danger{color:var(--out)}
+:root[data-skin=apple] .chip,:root[data-skin=appledark] .chip{background:var(--glass);border:0;box-shadow:none}
+:root[data-skin=apple] .chip.on,:root[data-skin=appledark] .chip.on,:root[data-skin=apple] #splitp .chip.on,:root[data-skin=appledark] #splitp .chip.on,:root[data-skin=apple] .calgrid button.on,:root[data-skin=appledark] .calgrid button.on,:root[data-skin=apple] .fanm button.main,:root[data-skin=appledark] .fanm button.main,:root[data-skin=apple] .fabb,:root[data-skin=appledark] .fabb,:root[data-skin=apple] .swa button,:root[data-skin=appledark] .swa button,:root[data-skin=apple] .lockicon,:root[data-skin=appledark] .lockicon{background:rgb(var(--acc));color:#fff;border:0;box-shadow:none}
+:root[data-skin=apple] .fabb,:root[data-skin=appledark] .fabb{border-radius:50%;box-shadow:0 6px 16px rgb(0 0 0/.2)}
+:root[data-skin=apple] .fanm button,:root[data-skin=appledark] .fanm button{background:var(--glass);color:var(--ink);border:0;box-shadow:0 6px 18px rgb(0 0 0/.16)}
+:root[data-skin=apple] .swa .d,:root[data-skin=appledark] .swa .d{background:#ff3b30}
+:root[data-skin=apple] .lockicon svg,:root[data-skin=appledark] .lockicon svg{stroke:#fff}
+:root[data-skin=apple] .auth h1 b,:root[data-skin=appledark] .auth h1 b{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:rgb(var(--acct))}
+:root[data-skin=apple] .x,:root[data-skin=appledark] .x,:root[data-skin=apple] .calhead button,:root[data-skin=appledark] .calhead button,:root[data-skin=apple] .raw,:root[data-skin=appledark] .raw{background:var(--line)}
+:root[data-skin=apple] #toast,:root[data-skin=appledark] #toast{background:var(--glass);color:var(--ink);border:0;box-shadow:0 10px 30px rgb(0 0 0/.2)}
+:root[data-skin=apple] #toast .undo,:root[data-skin=appledark] #toast .undo,:root[data-skin=apple] .tplc .go,:root[data-skin=appledark] .tplc .go,:root[data-skin=apple] .evtpl .tq,:root[data-skin=appledark] .evtpl .tq{background:var(--soft);border-color:transparent;color:rgb(var(--acct))}
+:root[data-skin=apple] .tplc .ed,:root[data-skin=appledark] .tplc .ed{border-color:var(--line)}
+:root[data-skin=apple] #done>div,:root[data-skin=appledark] #done>div,:root[data-skin=apple] .cbox,:root[data-skin=appledark] .cbox{background:var(--glass);border:0;box-shadow:0 20px 50px rgb(0 0 0/.22)}
+:root[data-skin=apple] #done path,:root[data-skin=appledark] #done path{stroke:var(--in)}
+:root[data-skin=apple] .banner,:root[data-skin=appledark] .banner{border:0}
+:root[data-skin=apple] .banner.bank,:root[data-skin=appledark] .banner.bank{background:var(--soft);color:rgb(var(--acct));box-shadow:none;animation:none}
+:root[data-skin=apple] .banner.wrapb,:root[data-skin=appledark] .banner.wrapb{background:rgb(var(--acc));color:#fff}
+:root[data-skin=apple] .bar i,:root[data-skin=appledark] .bar i,:root[data-skin=apple] .ring .rf,:root[data-skin=appledark] .ring .rf,:root[data-skin=apple] .ring .rf.full,:root[data-skin=appledark] .ring .rf.full,:root[data-skin=apple] .rg.over .rf,:root[data-skin=appledark] .rg.over .rf,:root[data-skin=apple] .donut .s,:root[data-skin=appledark] .donut .s,:root[data-skin=apple] .legend li i,:root[data-skin=appledark] .legend li i,:root[data-skin=apple] .trend .in,:root[data-skin=appledark] .trend .in,:root[data-skin=apple] .trend .ex,:root[data-skin=appledark] .trend .ex,:root[data-skin=apple] .bulb,:root[data-skin=appledark] .bulb,:root[data-skin=apple] .streak .fire,:root[data-skin=appledark] .streak .fire,:root[data-skin=apple] .spl,:root[data-skin=appledark] .spl,:root[data-skin=apple] .bdg.got span,:root[data-skin=appledark] .bdg.got span,:root[data-skin=apple] .chip.accent i,:root[data-skin=appledark] .chip.accent i,:root[data-skin=apple] #done circle,:root[data-skin=appledark] #done circle,:root[data-skin=apple] .hd.has,:root[data-skin=appledark] .hd.has{filter:none;box-shadow:none}
+:root[data-skin=apple] .streak .fire,:root[data-skin=appledark] .streak .fire{animation:none}
+:root[data-skin=apple] .bar,:root[data-skin=appledark] .bar,:root[data-skin=apple] .hd,:root[data-skin=appledark] .hd,:root[data-skin=apple] .bdg,:root[data-skin=appledark] .bdg{background:var(--line)}
+:root[data-skin=apple] .ring .rb,:root[data-skin=appledark] .ring .rb,:root[data-skin=apple] .donut .bgc,:root[data-skin=appledark] .donut .bgc{stroke:var(--line)}
+:root[data-skin=apple] .hd.has,:root[data-skin=appledark] .hd.has{color:#fff}
+:root[data-skin=apple] .bdg,:root[data-skin=appledark] .bdg{border-color:var(--line)}
+:root[data-skin=apple] .bdg.got,:root[data-skin=appledark] .bdg.got{background:var(--glass);border:0}
+:root[data-skin=apple] .calc,:root[data-skin=appledark] .calc,:root[data-skin=apple] .ops .op,:root[data-skin=appledark] .ops .op,:root[data-skin=apple] .calgrid button.now,:root[data-skin=appledark] .calgrid button.now{color:rgb(var(--acct))}
+:root[data-skin=apple] .skin,:root[data-skin=appledark] .skin{background:var(--glass);border-color:var(--line)}
+:root[data-skin=apple] .skin.on,:root[data-skin=appledark] .skin.on{border-color:rgb(var(--acc));box-shadow:0 0 0 2px rgb(var(--acc)/.4)}
+:root[data-skin=apple] .bcard{box-shadow:0 8px 20px rgb(0 0 0/.15)}
+.msum{display:flex;align-items:center;gap:16px;padding:14px 16px}
+.msum svg{flex:none;width:92px;height:92px}
+.msum circle{fill:none;stroke-width:9;stroke-linecap:round}
+.msum .t{flex:1;display:grid;gap:8px;min-width:0}
+.msum .r{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px}
+.msum .r span{color:var(--mute);white-space:nowrap}
+.msum .r b{font-weight:600;white-space:nowrap}
+.msum i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:6px;vertical-align:1px}
+.mask .msum b{filter:blur(8px)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }

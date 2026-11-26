@@ -821,6 +821,15 @@ const Core = (() => {
     throw bad('درخواست نامعتبر است.');
   }
 
-  return { handle, lock, changePassword, checkPassword, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
+  /* ---------- واحد نمایش مبلغ: اطلاعات همیشه عدد صحیح تومان است؛ «ریال» فقط ×۱۰ در نمایش و ÷۱۰ در ورود ---------- */
+  const unit = {
+    mul: u => u === 'rial' ? 10 : 1,
+    name: u => u === 'rial' ? 'ریال' : 'تومان',
+    show: (toman, u) => toman * unit.mul(u),
+    /* عدد واردشده به واحد نمایش ← تومان؛ ریالی که بر ۱۰ بخش‌پذیر نیست NaN می‌شود */
+    parse: (n, u) => { const m = unit.mul(u); return Number.isFinite(n) && n % m === 0 ? n / m : NaN; }
+  };
+
+  return { unit, handle, lock, changePassword, checkPassword, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
 })();
 if (typeof module !== 'undefined') module.exports = Core;

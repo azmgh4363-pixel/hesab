@@ -4,7 +4,7 @@ const FA = '۰۱۲۳۴۵۶۷۸۹', AR = '٠١٢٣٤٥٦٧٨٩';
 const fa = v => String(v).replace(/\d/g, d => FA[d]);
 const en = v => String(v).replace(/[۰-۹]/g, d => FA.indexOf(d)).replace(/[٠-٩]/g, d => AR.indexOf(d));
 const group = n => String(n).replace(/\B(?=(\d{3})+$)/g, '٬');
-const money = n => (n < 0 ? '−' : '') + fa(group(Math.abs(n)));
+const money = n => { const v = Core.unit.show(n, UNIT); return (v < 0 ? '−' : '') + fa(group(Math.abs(v))); };
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const digits = v => en(v).replace(/\D/g, '');
 const KIND = { income: 'درآمد', expense: 'هزینه', transfer: 'انتقال' };
@@ -20,6 +20,13 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
   del(k) { try { localStorage.removeItem(k); } catch { } }
 };
+/* واحد نمایش مبلغ (تنظیم همین گوشی). همه‌ی نمایش‌ها از money/unitName و همه‌ی ورودها از amtIn/readAmt می‌گذرند. */
+let UNIT = store.get('unit', 'toman') === 'rial' ? 'rial' : 'toman';
+const unitName = () => Core.unit.name(UNIT);
+const amtIn = toman => toman ? fa(group(Math.abs(Core.unit.show(Number(toman), UNIT)))) : '';
+const readAmt = v => Core.unit.parse(Number(digits(v) || 0), UNIT);
+const UNIT_ERR = 'مبلغ ریالی باید به صفر ختم شود (کوچک‌ترین واحد ۱۰ ریال است).';
+const amtTyping = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
 const S = { home: null, stale: false, view: 'home', queue: store.get('queue', []), flushing: false, filter: {} };
 
 function jalali(d) {
@@ -140,9 +147,9 @@ function queueBanner() {
   const failed = S.queue.filter(q => q.error).length, waiting = S.queue.length - failed;
   let h = S.home.pending ? `<button class="banner bank" data-act="inbox">${fa(S.home.pending)} تراکنش بانکی منتظر تعیین تکلیف است.</button>` : '';
   for (const c of S.home.checks ?? []) if (c.diff && c.waiting)
-    h += `<button class="banner" data-act="inbox">مانده‌ی ${esc(c.name)} ${money(Math.abs(c.diff))} تومان با پیامک بانک فرق دارد؛ ${fa(c.pending)} پیامک منتظر دارید. اول آن‌ها را تعیین تکلیف کنید.</button>`;
+    h += `<button class="banner" data-act="inbox">مانده‌ی ${esc(c.name)} ${money(Math.abs(c.diff))} ${unitName()} با پیامک بانک فرق دارد؛ ${fa(c.pending)} پیامک منتظر دارید. اول آن‌ها را تعیین تکلیف کنید.</button>`;
   for (const c of S.home.checks ?? []) if (c.diff && !c.waiting)
-    h += `<button class="banner warn" data-act="stmt" data-id="${c.accountId}">مانده‌ی ${esc(c.name)} با پیامک بانک نمی‌خواند: اختلاف ${money(Math.abs(c.diff))} تومان. برای دیدن لمس کنید.</button>`;
+    h += `<button class="banner warn" data-act="stmt" data-id="${c.accountId}">مانده‌ی ${esc(c.name)} با پیامک بانک نمی‌خواند: اختلاف ${money(Math.abs(c.diff))} ${unitName()}. برای دیدن لمس کنید.</button>`;
   for (const b of S.home.budgets ?? [])
     h += `<button class="banner" data-act="report">${esc(b.name)}: ${fa(Math.round(b.spent * 100 / b.budget))}٪ سقف این ماه خرج شده (${money(b.spent)} از ${money(b.budget)}).</button>`;
   if (S.home.backupDue) h += `<button class="banner" data-act="backup">مدتی است پشتیبان نگرفته‌اید. برای گرفتن پشتیبان لمس کنید.</button>`;
@@ -158,7 +165,7 @@ function viewHome() {
   const h = S.home, t = homeTotals(h);
   $('#view').innerHTML = `
   <div class="card hero"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button><div class="lbl">کل موجودی${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
-    <div class="big" data-count="${t.cash + t.bank}">${money(t.cash + t.bank)} <span class="unit">تومان</span></div>
+    <div class="big" data-count="${t.cash + t.bank}">${money(t.cash + t.bank)} <span class="unit">${unitName()}</span></div>
     <div class="row"><span>نقد: ${money(t.cash)}</span><span>بانک: ${money(t.bank)}</span></div>
     ${h.hasBusiness ? `<div class="spk bizk"><span></span><span><button type="button" class="${noBiz() ? '' : 'on'}" data-act="biz" data-v="0">همه</button><button type="button" class="${noBiz() ? 'on' : ''}" data-act="biz" data-v="1">بدون کسب‌وکار</button></span></div>` : ''}${spark(t.series)}</div>
   ${queueBanner()}
@@ -174,15 +181,27 @@ function viewHome() {
     <small class="${r.overdue ? 'neg' : ''}">سررسید ${fa(r.next)}${r.overdue ? ' (گذشته)' : ''}${r.left ? ` · ${fa(r.left)} دفعه مانده` : ''}</small>
     <div class="two"><button class="ghost" data-act="duepay" data-id="${r.id}">ثبت</button><button class="ghost" data-act="dueskip" data-id="${r.id}">این بار نه</button></div></div>`).join('')}` : ''}
   <h2>این ماه</h2>
-  <div class="stats">
+  ${appleSkin() ? monthRings(h) : `<div class="stats">
     <div class="card"><small>درآمد</small><b class="pos">${money(h.income)}</b></div>
     <div class="card"><small>هزینه</small><b class="neg">${money(h.expense)}</b></div>
     <div class="card"><small>خالص</small><b class="${h.net < 0 ? 'neg' : 'pos'}">${money(h.net)}</b></div>
-  </div>
+  </div>`}
   ${wrapBanner(h)}${insightCard(h)}${streakCard(h)}${budgetRings(h)}${subsCard(h)}
   ${h.cats?.length ? `<h2>خرج این ماه به تفکیک دسته</h2><div class="card donutcard" data-act="report">${donut(h.cats, 'هزینه')}</div>` : ''}
   <h2>آخرین تراکنش‌ها</h2>
   ${h.recent.length || S.queue.length ? `<div class="list">${queueRows()}${byDay(h.recent, t => txRow(t))}</div>` : `<div class="card empty">هنوز تراکنشی ثبت نشده است.</div>`}`;
+}
+
+/* سبک «اپل»: درآمد، هزینه و پس‌انداز ماه با سه حلقه (نسبت به بزرگ‌ترِ درآمد و هزینه) */
+function monthRings(h) {
+  const base = Math.max(h.income, h.expense) || 1, save = Math.max(h.net, 0);
+  const rg = (r, v, c) => { const C = 2 * Math.PI * r, p = Math.min(1, Math.max(0, v / base));
+    return `<circle cx="46" cy="46" r="${r}" style="stroke:var(--line)"/>${p ? `<circle cx="46" cy="46" r="${r}" stroke="${c}" stroke-dasharray="${(C * p).toFixed(1)} ${C.toFixed(1)}"/>` : ''}`; };
+  const pct = v => h.income > 0 ? ` · ${fa(Math.round(v * 100 / h.income))}٪` : '';
+  return `<div class="card msum" data-act="report"><svg viewBox="0 0 92 92" aria-hidden="true"><g transform="rotate(-90 46 46)">${rg(40, h.income, '#34c759')}${rg(28, h.expense, '#ff375f')}${rg(16, save, '#0a84ff')}</g></svg>
+    <div class="t"><div class="r"><span><i style="background:#34c759"></i>درآمد</span><b class="pos">${money(h.income)}</b></div>
+    <div class="r"><span><i style="background:#ff375f"></i>هزینه${pct(h.expense)}</span><b class="neg">${money(h.expense)}</b></div>
+    <div class="r"><span><i style="background:#0a84ff"></i>${h.net < 0 ? 'کسری' : 'پس‌انداز' + pct(save)}</span><b class="${h.net < 0 ? 'neg' : 'pos'}">${money(h.net)}</b></div></div></div>`;
 }
 
 async function viewList() {
@@ -240,7 +259,7 @@ async function viewStmt() {
   const el = $('#st'); if (!el) return;
   el.innerHTML = `<button class="ghost" data-act="tab" data-v="accounts">بازگشت به حساب‌ها</button>
   <div class="card hero"><div class="lbl">${esc(r.account.name)}</div>
-    <div class="big">${money(r.account.balance)} <span class="unit">تومان</span></div>
+    <div class="big">${money(r.account.balance)} <span class="unit">${unitName()}</span></div>
     <div class="row"><span>موجودی اولیه: ${money(r.opening)}</span></div></div>
   ${checkCard(r.check)}
   ${r.account.kind === 'bank' ? `<button class="ghost" data-act="recon" data-id="${id}" data-b="${r.account.balance}">⚖️ تطبیق با موجودی بانک</button>` : ''}
@@ -258,7 +277,7 @@ async function viewPerson() {
   const b = r.person.balance, el = $('#st'); if (!el) return;
   el.innerHTML = `<button class="ghost" data-act="tab" data-v="accounts">بازگشت به حساب‌ها</button>
   <div class="card hero"><div class="lbl">${esc(r.person.name)} · ${b > 0 ? 'طلب شما' : b < 0 ? 'بدهی شما' : 'تسویه'}</div>
-    <div class="big">${money(Math.abs(b))} <span class="unit">تومان</span></div></div>
+    <div class="big">${money(Math.abs(b))} <span class="unit">${unitName()}</span></div></div>
   <div class="two">${PERSON_OPS.map(([t], i) => `<button class="ghost" data-act="pop" data-i="${i}">${t}</button>`).join('')}</div>
   ${b > 0 ? `<button class="primary" data-act="remind" data-n="${esc(r.person.name)}" data-b="${b}">📨 یادآوری طلب</button>` : ''}
   <button class="ghost" data-act="pform" data-id="${r.person.id}">ویرایش شخص</button>
@@ -270,14 +289,15 @@ function personForm(p) {
   const o = p?.openingBalance ?? 0;
   openSheet(`<form id="pf2" novalidate><div class="phead"><h1>${p ? 'ویرایش شخص' : 'شخص تازه'}</h1><button type="button" class="x" data-act="close">بستن</button></div>
     <label for="pn">نام</label><input id="pn" autocomplete="off" value="${esc(p?.name)}">
-    <label for="po">مانده‌ی اول (اختیاری)</label><input id="po" class="amount" inputmode="numeric" autocomplete="off" value="${o ? fa(group(Math.abs(o))) : ''}">
+    <label for="po">مانده‌ی اول (اختیاری)</label><input id="po" class="amount" inputmode="numeric" autocomplete="off" value="${amtIn(o)}">
     <select id="ps"><option value="1">او به من بدهکار است (طلب من)</option><option value="-1" ${o < 0 ? 'selected' : ''}>من به او بدهکارم</option></select>
     <div class="err" id="perr2" role="alert"></div><button class="primary">ذخیره</button>
     ${p ? `<button type="button" class="ghost danger" data-act="pdel" data-id="${p.id}">حذف از فهرست</button>` : ''}</form>`);
-  $('#po').oninput = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
+  $('#po').oninput = amtTyping;
   $('#pf2').onsubmit = async e => {
     e.preventDefault();
-    const body = { name: $('#pn').value.trim(), openingBalance: Number(digits($('#po').value) || 0) * Number($('#ps').value) };
+    const ob = readAmt($('#po').value); if (Number.isNaN(ob)) return $('#perr2').textContent = UNIT_ERR;
+    const body = { name: $('#pn').value.trim(), openingBalance: ob * Number($('#ps').value) };
     try { const r = await api(p ? '/api/people/' + p.id : '/api/people', p ? 'PUT' : 'POST', body); closeSheet(); toast('ذخیره شد.');
       if (!p) { S.personId = r.id; S.view = 'person'; } refresh(); }
     catch (x) { x.auth ? showAuth(true) : $('#perr2').textContent = x.msg; }
@@ -332,7 +352,7 @@ function recurringSheet() {
     <h2>مورد تازه</h2>
     <label for="rn">نام</label><input id="rn" autocomplete="off" placeholder="مثلاً قسط وام">
     <label for="rk">نوع</label><select id="rk"><option value="expense">پرداخت</option><option value="income">دریافت</option></select>
-    <label for="ra">مبلغ هر بار (تومان)</label><input id="ra" class="amount" inputmode="numeric" autocomplete="off">
+    <label for="ra">مبلغ هر بار (${unitName()})</label><input id="ra" class="amount" inputmode="numeric" autocomplete="off">
     <label for="rc">دسته</label><select id="rc">${catOpts('expense')}</select>
     <label for="racc">حساب</label><select id="racc">${accs.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select>
     ${h.people?.length ? `<label for="rp2">شخص (اختیاری)</label><select id="rp2">${personOpts(null)}</select>` : ''}
@@ -340,12 +360,13 @@ function recurringSheet() {
     <label for="rl">تعداد دفعه‌ها (خالی = همیشگی)</label><input id="rl" inputmode="numeric" autocomplete="off">
     <div class="err" id="rerr2" role="alert"></div><button class="primary">افزودن</button></form>`);
   $('#rk').onchange = e => { $('#rc').innerHTML = catOpts(e.target.value); };
-  $('#ra').oninput = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
+  $('#ra').oninput = amtTyping;
   $('#rf2').onsubmit = async e => {
     e.preventDefault();
     const left = digits($('#rl').value);
-    const body = { name: $('#rn').value.trim(), kind: $('#rk').value, amount: Number(digits($('#ra').value)), categoryId: Number($('#rc').value) || null,
+    const body = { name: $('#rn').value.trim(), kind: $('#rk').value, amount: readAmt($('#ra').value), categoryId: Number($('#rc').value) || null,
       accountId: Number($('#racc').value), personId: Number($('#rp2')?.value) || null, next: normDate($('#rd').value), left: left ? Number(left) : null };
+    if (Number.isNaN(body.amount)) return $('#rerr2').textContent = UNIT_ERR;
     if (!body.amount) return $('#rerr2').textContent = 'مبلغ را وارد کنید.';
     try { await api('/api/recurring', 'POST', body); toast('اضافه شد.'); await refresh(); recurringSheet(); }
     catch (x) { x.auth ? showAuth(true) : $('#rerr2').textContent = x.msg; }
@@ -359,8 +380,8 @@ async function exportCsv() {
     const rows = await api('/api/transactions?' + p);
     if (!rows.length) return toast('موردی برای خروجی نیست.');
     const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-    const head = ['تاریخ', 'نوع', 'مبلغ (تومان)', 'حساب', 'به حساب', 'دسته', 'شخص', 'شرح', 'یادداشت', 'روش پرداخت'].map(q).join(',');
-    const lines = rows.slice().reverse().map(t => [q(`="${t.date}"`), q(t.neutral ? 'خنثی' : KIND[t.kind]), t.kind === 'expense' ? -t.amount : t.amount,
+    const head = ['تاریخ', 'نوع', 'مبلغ (' + unitName() + ')', 'حساب', 'به حساب', 'دسته', 'شخص', 'شرح', 'یادداشت', 'روش پرداخت'].map(q).join(',');
+    const lines = rows.slice().reverse().map(t => [q(`="${t.date}"`), q(t.neutral ? 'خنثی' : KIND[t.kind]), Core.unit.show(t.kind === 'expense' ? -t.amount : t.amount, UNIT),
       q(t.accountName), q(t.toAccountName), q(t.categoryName), q(t.personName), q(t.description), q(t.notes), q(t.method)].join(','));
     const name = `hesab-${today().replaceAll('/', '-')}.csv`;
     if (await saveFile(new File(['\uFEFF' + [head, ...lines].join('\r\n')], name, { type: 'text/csv' }))) toast(`خروجی ${fa(rows.length)} ردیف ساخته شد.`);
@@ -370,15 +391,15 @@ async function exportCsv() {
 function checkCard(c) {
   if (!c) return '';
   const when = fa(c.date) + (c.time ? ' ساعت ' + fa(c.time) : '');
-  if (c.waiting) return `<div class="card hint">${c.diff ? `<b class="neg">اختلاف ${money(Math.abs(c.diff))} تومان با مانده‌ی پیامک بانک</b><br>` : ''}${fa(c.pending)} پیامک منتظر برای این حساب هست؛ اول آن‌ها را در صندوق پیامک‌ها تعیین تکلیف کنید تا مانده کنترل شود.<button class="ghost" data-act="inbox">صندوق پیامک‌ها</button></div>`;
+  if (c.waiting) return `<div class="card hint">${c.diff ? `<b class="neg">اختلاف ${money(Math.abs(c.diff))} ${unitName()} با مانده‌ی پیامک بانک</b><br>` : ''}${fa(c.pending)} پیامک منتظر برای این حساب هست؛ اول آن‌ها را در صندوق پیامک‌ها تعیین تکلیف کنید تا مانده کنترل شود.<button class="ghost" data-act="inbox">صندوق پیامک‌ها</button></div>`;
   if (c.unknown) return `<div class="card hint">ترتیب پیامک‌های ${fa(c.date)} معلوم نیست (شاید پیامکی جا افتاده)؛ مانده‌ی این حساب با پیامک کنترل نشد. با موجودی همراه‌بانک مقایسه کنید.</div>`;
   if (!c.diff) return `<div class="card hint"><b class="pos">✓</b> با مانده‌ی آخرین پیامک بانک (${when}) یکی است.</div>`;
   return `<div class="card hint"><b class="neg">مانده با بانک نمی‌خواند</b><br>
-    مانده در پیامک بانک (${when}): ${money(c.bank)} تومان<br>
-    مانده‌ی برنامه در پایان همان روز: ${money(c.app)} تومان<br>
-    اختلاف: ${money(c.diff)} تومان. ${c.diff > 0 ? 'برنامه کمتر از بانک است: شاید واریزی جا افتاده یا برداشتی دو بار ثبت شده.' : 'برنامه بیشتر از بانک است: شاید برداشت یا کارمزدی جا افتاده یا واریزی دو بار ثبت شده.'}
+    مانده در پیامک بانک (${when}): ${money(c.bank)} ${unitName()}<br>
+    مانده‌ی برنامه در پایان همان روز: ${money(c.app)} ${unitName()}<br>
+    اختلاف: ${money(c.diff)} ${unitName()}. ${c.diff > 0 ? 'برنامه کمتر از بانک است: شاید واریزی جا افتاده یا برداشتی دو بار ثبت شده.' : 'برنامه بیشتر از بانک است: شاید برداشت یا کارمزدی جا افتاده یا واریزی دو بار ثبت شده.'}
     اگر از اول اختلاف بوده، موجودی اولیه‌ی حساب را بررسی کنید.
-    <button class="primary" data-act="fixcheck" data-id="${c.accountId}">ثبت ${money(Math.abs(c.diff))} تومان به‌عنوان ${c.diff < 0 ? 'کارمزد بانکی' : 'سایر درآمدها'}</button>
+    <button class="primary" data-act="fixcheck" data-id="${c.accountId}">ثبت ${money(Math.abs(c.diff))} ${unitName()} به‌عنوان ${c.diff < 0 ? 'کارمزد بانکی' : 'سایر درآمدها'}</button>
     <small class="hint">با تاریخ همان پیامک (${fa(c.date)}) ثبت می‌شود. اگر علت را می‌دانید (مثلاً ثبتی جا افتاده)، به‌جایش همان را درست کنید.</small></div>`;
 }
 
@@ -391,6 +412,7 @@ function viewMore() {
   <h2>تراکنش‌های بانکی</h2><button class="ghost" data-act="inbox">صندوق پیامک‌های بانک</button>
   <h2>سبک ظاهر</h2><div class="skins">${SKINS.map(([k, n, , g]) => `<button class="skin ${(document.documentElement.dataset.skin || 'classic') === k ? 'on' : ''}" data-act="skin" data-k="${k}"><i style="background:${g}"></i>${n}</button>`).join('')}</div>
   <h2>رنگ برنامه</h2><p class="hint">رنگ نورها و دکمه‌ها در سبک‌های کلاسیک و شیشه‌ی مایع.</p><div class="chips">${ACCENTS.map(([k, n, c]) => `<button class="chip accent ${(document.documentElement.dataset.accent || 'blue') === k ? 'on' : ''}" data-act="accent" data-k="${k}"><i style="background:${c};color:${c}"></i>${n}</button>`).join('')}</div>
+  <h2>واحد نمایش مبلغ</h2><p class="hint">اطلاعات عوض نمی‌شود؛ فقط نمایش و ورود مبلغ. ریال = ده برابر تومان.</p><div class="chips">${[['toman', 'تومان'], ['rial', 'ریال']].map(([k, n]) => `<button class="chip ${UNIT === k ? 'on' : ''}" data-act="unit" data-k="${k}">${n}</button>`).join('')}</div>
   ${badgesHtml()}
   <h2>نصب روی آیفون</h2><div class="card hint">در Safari دکمه‌ی Share و بعد Add to Home Screen را بزنید.</div>
   <h2>گزارش و برنامه‌ریزی</h2>
@@ -422,8 +444,8 @@ function txForm(kind, src, qid, preset) {
   const editing = !!src;
   openSheet(`<form id="txf" data-kind="${kind}" data-id="${src?.id ?? ''}" data-qid="${esc(qid ?? '')}" data-rid="${preset?.recurringId ?? ''}" novalidate>
     <div class="phead"><h1>${editing ? 'ویرایش ' : ''}${KIND[kind]}</h1><button type="button" class="x" data-act="close">بستن</button></div>
-    <label for="amt">مبلغ (تومان)</label>
-    <input id="amt" class="amount" inputmode="numeric" autocomplete="off" value="${pre?.amount ? fa(group(pre.amount)) : ''}">
+    <label for="amt">مبلغ (${unitName()})</label>
+    <input id="amt" class="amount" inputmode="numeric" autocomplete="off" value="${amtIn(pre?.amount)}">
     <div id="calc" class="calc" aria-live="polite"></div>
     <div class="chips ops"><button type="button" class="chip" data-act="zeros">۰۰۰+</button>${['+', '−', '×', '÷', '='].map(o => `<button type="button" class="chip op" data-act="op" data-o="${o}">${o}</button>`).join('')}</div>
     ${kind === 'transfer' ? `<label for="acc">از حساب</label><select id="acc">${opts(accId)}</select>
@@ -469,10 +491,11 @@ function txForm(kind, src, qid, preset) {
 /* خواندن فرم ثبت؛ اگر ایرادی باشد متن خطا برمی‌گردد. */
 function readTx() {
   const kind = $('#txf').dataset.kind;
-  const amount = calcExpr($('#amt').value), date = normDate($('#date').value);
+  const amount = Core.unit.parse(calcExpr($('#amt').value), UNIT), date = normDate($('#date').value);
   const accountId = Number($('#acc').value);
   const toAccountId = kind === 'transfer' ? Number($('#to').value) : null;
   const categoryId = kind === 'transfer' ? null : Number($('#cats .on')?.dataset.id) || null;
+  if (Number.isNaN(amount) && calcExpr($('#amt').value) > 0) return UNIT_ERR;
   if (!(amount > 0)) return 'مبلغ را وارد کنید.';
   if (kind !== 'transfer' && !categoryId) return 'دسته را انتخاب کنید.';
   if (kind === 'transfer' && accountId === toAccountId) return 'حساب مبدأ و مقصد نباید یکی باشند.';
@@ -518,16 +541,17 @@ function accForm(a) {
     <label for="ak">نوع</label><select id="ak"><option value="bank" ${a?.kind === 'bank' ? 'selected' : ''}>بانک</option><option value="cash" ${a?.kind === 'cash' ? 'selected' : ''}>نقد</option></select>
     <label for="ab">نام بانک</label><input id="ab" value="${esc(a?.bankName)}">
     <label for="au">شماره حساب (اختیاری)</label><input id="au" inputmode="numeric" class="date" value="${esc(a?.accountNumber)}">
-    <label for="ao">موجودی اولیه (تومان)</label><input id="ao" inputmode="numeric" class="date" value="${a ? fa(group(Math.abs(a.openingBalance))) : ''}">
+    <label for="ao">موجودی اولیه (${unitName()})</label><input id="ao" inputmode="numeric" class="date" value="${a ? amtIn(a.openingBalance) : ''}">
     <label class="chk"><input type="checkbox" id="abz" ${a?.business ? 'checked' : ''}> این حساب مال کسب‌وکار است</label>
     <p class="hint">در صفحه‌ی خانه می‌توانید موجودی را بدون حساب‌های کسب‌وکار ببینید.</p>
     <div class="err" id="err" role="alert"></div><button class="primary">ذخیره</button>
     ${a ? `<button type="button" class="ghost danger" data-act="archive" data-id="${a.id}">بایگانی حساب</button>` : ''}</form>`);
-  $('#ao').oninput = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
+  $('#ao').oninput = amtTyping;
   $('#af').onsubmit = async e => {
     e.preventDefault();
     const sign = a && a.openingBalance < 0 ? -1 : 1;
-    const body = { name: $('#an').value, kind: $('#ak').value, bankName: $('#ab').value.trim() || null, accountNumber: en($('#au').value).trim() || null, openingBalance: sign * Number(digits($('#ao').value)), business: $('#abz').checked };
+    const ob = readAmt($('#ao').value); if (Number.isNaN(ob)) return $('#err').textContent = UNIT_ERR;
+    const body = { name: $('#an').value, kind: $('#ak').value, bankName: $('#ab').value.trim() || null, accountNumber: en($('#au').value).trim() || null, openingBalance: sign * ob, business: $('#abz').checked };
     try { await api('/api/accounts' + (a ? '/' + a.id : ''), a ? 'PUT' : 'POST', body); closeSheet(); toast('ذخیره شد.'); refresh(); }
     catch (x) { x.auth ? showAuth(true) : $('#err').textContent = x.msg; }
   };
@@ -541,7 +565,7 @@ const actions = {
   zeros() { const i = $('#amt'); if (/\d$/.test(en(i.value))) i.value = fmtExpr(i.value + '000'); showCalc(); i.focus(); },
   op(b) {
     const i = $('#amt'), o = b.dataset.o;
-    if (o === '=') { const r = calcExpr(i.value); if (r > 0) i.value = fa(group(r)); }
+    if (o === '=') { const r = calcExpr(i.value); if (r > 0) i.value = fa(group(r)); /* عدد به واحد نمایش */ }
     else if (/\d$/.test(en(i.value))) i.value = fmtExpr(i.value + o);
     else if (i.value) i.value = i.value.replace(/[+−×÷]$/, o);
     showCalc(); i.focus();
@@ -618,9 +642,9 @@ const actions = {
   report() { S.view = 'report'; render(); window.scrollTo(0, 0); },
   month(b) { S.month = (b.dataset.d === '1' ? nextMonth : prevMonth)(S.month); render(); },
   async budget(b) {
-    const v = prompt(`سقف خرج ماهانه‌ی «${b.dataset.n}» به تومان (خالی = بدون سقف)`, b.dataset.b ? fa(group(b.dataset.b)) : '');
+    const v = prompt(`سقف خرج ماهانه‌ی «${b.dataset.n}» به ${unitName()} (خالی = بدون سقف)`, amtIn(b.dataset.b));
     if (v === null) return;
-    const n = Number(digits(v));
+    const n = readAmt(v); if (Number.isNaN(n)) return toast(UNIT_ERR);
     try { await api(`/api/categories/${b.dataset.id}/budget`, 'PUT', { budget: n || null }); toast(n ? 'سقف ذخیره شد.' : 'سقف برداشته شد.'); refresh(); }
     catch (e) { toast(e.msg); }
   },
@@ -772,9 +796,50 @@ function catEmoji(name, kind) {
   return kind === 'neutral' ? '⚖️' : kind === 'income' ? '💰' : '🧾';
 }
 const hue = s => { let h = 7; for (const ch of String(s ?? '')) h = (h * 31 + ch.codePointAt(0)) % 360; return h; };
-const catIcon = (name, kind) => `<i class="ci" style="--h:${hue(name)}" aria-hidden="true">${catEmoji(name, kind)}</i>`;
+/* سبک «اپل»: به‌جای ایموجی، نماد خطی روی مربع رنگی (اگر نمادی نباشد همان ایموجی) */
+const appleSkin = () => /^apple/.test(document.documentElement.dataset.skin || '');
+const CS = (c, d) => [c, `<svg viewBox="0 0 24 24">${d}</svg>`];
+const CAT_SVG = {
+  '💼': CS('#34c759', '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>'),
+  '🏷️': CS('#ff9500', '<path d="M3 12V4h8l10 10-8 8Z"/><circle cx="7.5" cy="8.5" r="1.5"/>'),
+  '✨': CS('#ff9f0a', '<path d="M12 3v5M12 16v5M3 12h5M16 12h5M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>'),
+  '🍔': CS('#ff6b35', '<path d="M7 3v18M5 3v5a2 2 0 0 0 4 0V3M17 21V3c-2 1-3 4-3 7h3"/>'),
+  '🍽️': CS('#a2845e', '<path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5ZM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2M11 3.5v2M14 3.5v2"/>'),
+  '🚕': CS('#5856d6', '<path d="M5 16.5V12l2-5h10l2 5v4.5M3.5 12h17v4.5h-17ZM7 19v-2.5M17 19v-2.5"/>'),
+  '🏠': CS('#007aff', '<path d="M4 11 12 4l8 7v8.5a1 1 0 0 1-1 1h-4.5V15h-5v5.5H5a1 1 0 0 1-1-1Z"/>'),
+  '💡': CS('#ff9f0a', '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>'),
+  '💊': CS('#ff2d55', '<path d="M12 5v14M5 12h14"/>'),
+  '🏦': CS('#8e8e93', '<path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>'),
+  '🧾': CS('#8e8e93', '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2ZM9 8h6M9 12h6"/>'),
+  '🤝': CS('#af52de', '<circle cx="9" cy="7.5" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.5c1.8.8 3 2.7 3 5"/>'),
+  '↩️': CS('#30b0c7', '<path d="M9 5 4 10l5 5M4 10h10a5 5 0 0 1 0 10h-3"/>'),
+  '📥': CS('#34c759', '<path d="M12 3v11M7 9l5 5 5-5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>'),
+  '📤': CS('#ff9500', '<path d="M12 14V3M7 8l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>'),
+  '👛': CS('#a2845e', '<path d="M4 7h15a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a2 2 0 0 1 2-2h11M15 13.5h2"/>'),
+  '🛒': CS('#ff9500', '<path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L20.5 8H6.2"/><circle cx="10" cy="19.5" r="1"/><circle cx="17" cy="19.5" r="1"/>'),
+  '⛽': CS('#30b0c7', '<path d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4h6A1.5 1.5 0 0 1 14 5.5V20M3.5 20h12M5 10h9M14 9l3.5 2.5V17a1.5 1.5 0 0 0 3 0V8.5L18 6"/>'),
+  '📆': CS('#ff3b30', '<rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/>'),
+  '👕': CS('#5ac8fa', '<path d="M8 4 4 7l2 4 2-1v10h8V10l2 1 2-4-4-3a4 4 0 0 1-8 0Z"/>'),
+  '🎉': CS('#ff2d55', '<path d="m12 3 2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5l-5.3 2.9 1.2-6-4.5-4.1 6-.7Z"/>'),
+  '🎁': CS('#af52de', '<rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M3 9h18M12 9v11M12 9S10.5 4.5 8.5 4.5a2 2 0 0 0 0 4.5M12 9s1.5-4.5 3.5-4.5a2 2 0 0 1 0 4.5"/>'),
+  '📚': CS('#5856d6', '<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h13"/>'),
+  '📱': CS('#007aff', '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>'),
+  '🏋️': CS('#34c759', '<path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/>'),
+  '🧸': CS('#ff9f0a', '<circle cx="12" cy="12" r="8.5"/><path d="M9 14a3 3 0 0 0 6 0M9.5 10h.01M14.5 10h.01"/>'),
+  '🐾': CS('#a2845e', '<path d="M12 13c-3 0-5 3-5 5 0 1.5 1.5 2 2.5 2s1.5-.5 2.5-.5 1.5.5 2.5.5 2.5-.5 2.5-2c0-2-2-5-5-5Z"/><circle cx="6.5" cy="10" r="1.6"/><circle cx="10" cy="6" r="1.6"/><circle cx="14" cy="6" r="1.6"/><circle cx="17.5" cy="10" r="1.6"/>'),
+  '🔧': CS('#8e8e93', '<path d="M15 4a5 5 0 0 0-4.6 6.9L4 17.3V20h2.7l6.4-6.4A5 5 0 0 0 20 9l-3 1-3-3 1-3Z"/>'),
+  '📈': CS('#34c759', '<path d="M4 19h16M5 15l5-5 4 4 6-7"/>'),
+  '💇': CS('#ff2d55', '<circle cx="6" cy="7" r="2.5"/><circle cx="6" cy="17" r="2.5"/><path d="M8 8.5 20 18M8 15.5 20 6"/>'),
+  '💝': CS('#ff2d55', '<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10Z"/>'),
+  '⚖️': CS('#8e8e93', '<path d="M12 4v16M8 20h8M5 8h14M5 8l-2.5 6a2.5 2.5 0 0 0 5 0ZM19 8l-2.5 6a2.5 2.5 0 0 0 5 0Z"/>'),
+  '💰': CS('#34c759', '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2c-1 0-2-.5-2.5-1.5"/>')
+};
+const catIcon = (name, kind) => {
+  const e = catEmoji(name, kind), s = appleSkin() && CAT_SVG[e];
+  return s ? `<i class="ci" style="--tile:${s[0]}" aria-hidden="true">${s[1]}</i>` : `<i class="ci" style="--h:${hue(name)}" aria-hidden="true">${e}</i>`;
+};
 function txIcon(t) {
-  if (t.kind === 'transfer') return '<i class="ci tr" style="--h:205" aria-hidden="true">⇄</i>';
+  if (t.kind === 'transfer') return `<i class="ci tr" style="--h:205" aria-hidden="true">${appleSkin() ? ICON.transfer : '⇄'}</i>`;
   const c = S.home?.categories.find(x => x.id === t.categoryId);
   return catIcon(c?.name ?? t.categoryName, isNeutral(t) ? 'neutral' : t.kind);
 }
@@ -818,7 +883,7 @@ function insightCard(h) {
   }
   const top = h.cats?.[0];
   if (top) lines.push(`بیشترین خرج: ${catEmoji(top.name, 'expense')} ${esc(top.name)}`);
-  lines.push(`میانگین خرج روزانه: <b class="amtx">${money(Math.round(h.expense / day))}</b> تومان`);
+  lines.push(`میانگین خرج روزانه: <b class="amtx">${money(Math.round(h.expense / day))}</b> ${unitName()}`);
   return `<div class="card insight"><span class="bulb" aria-hidden="true">💡</span><div>${lines.map(l => `<p>${l}</p>`).join('')}</div></div>`;
 }
 
@@ -861,7 +926,7 @@ document.documentElement.classList.toggle('mask', !!store.get('mask', false));
 function fmtExpr(v) {
   let s = en(v).replace(/[*xX]/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/[^\d+−×÷]/g, '');
   s = s.replace(/^[+−×÷]+/, '').replace(/([+−×÷])[+−×÷]+/g, '$1');
-  return s.split(/([+−×÷])/).map(p => /^\d+$/.test(p) ? fa(group(p.replace(/^0+(?=\d)/, ''))) : p).join('');
+  return s.split(/([+−×÷])/).map(p => /^\d+$/.test(p) ? fa(group(p.replace(/^0+(?=\d)/, ''))) : p).join(''); /* عدد به واحد نمایش */
 }
 function calcExpr(v) {
   const t = en(fmtExpr(v)).replace(/٬/g, '').replace(/[+−×÷]$/, '').split(/([+−×÷])/);
@@ -880,7 +945,7 @@ function calcExpr(v) {
 function showCalc() {
   const el = $('#calc'), v = $('#amt')?.value ?? ''; if (!el) return;
   const r = /[+−×÷]/.test(v) ? calcExpr(v) : NaN;
-  el.textContent = r > 0 ? `= ${money(r)} تومان` : /[+−×÷]/.test(v) && r <= 0 ? 'جمع باید بیشتر از صفر باشد' : '';
+  el.textContent = r > 0 ? `= ${fa(group(r))} ${unitName()}` /* r به واحد نمایش است */ : /[+−×÷]/.test(v) && r <= 0 ? 'جمع باید بیشتر از صفر باشد' : '';
 }
 
 /* ---------- کشیدن ردیف به چپ: ویرایش و حذف ---------- */
@@ -928,21 +993,22 @@ document.addEventListener('touchend', () => {
 /* ---------- هدف پس‌انداز ---------- */
 function goalSheet(g) {
   openSheet(`<form id="gf" data-id="${g?.id ?? ''}" novalidate><div class="phead"><h1>${g ? esc(g.name) : 'هدف تازه'}</h1><button type="button" class="x" data-act="close">بستن</button></div>
-    ${g ? `<div class="goalhead">${ring(g.saved / g.target, 104)}<div><b>${money(g.saved)}</b> <span class="unit">از ${money(g.target)} تومان</span>
-      <small>${g.saved >= g.target ? 'به هدف رسیدید 🎉' : `${money(g.target - g.saved)} تومان مانده`}</small></div></div>
-      <label for="ga">مبلغ (تومان)</label><input id="ga" class="amount" inputmode="numeric" autocomplete="off">
+    ${g ? `<div class="goalhead">${ring(g.saved / g.target, 104)}<div><b>${money(g.saved)}</b> <span class="unit">از ${money(g.target)} ${unitName()}</span>
+      <small>${g.saved >= g.target ? 'به هدف رسیدید 🎉' : `${money(g.target - g.saved)} ${unitName()} مانده`}</small></div></div>
+      <label for="ga">مبلغ (${unitName()})</label><input id="ga" class="amount" inputmode="numeric" autocomplete="off">
       <div class="two"><button type="button" class="primary" data-act="gadd" data-s="1">افزودن به پس‌انداز</button><button type="button" class="ghost" data-act="gadd" data-s="-1">برداشت</button></div>
       <p class="hint">این بخش فقط پیشرفت هدف را می‌شمارد و پولی از حساب‌ها جابه‌جا نمی‌کند.</p>
       <details><summary>ویرایش یا حذف هدف</summary>` : ''}
     <label for="gn">نام هدف</label><input id="gn" autocomplete="off" placeholder="مثلاً خرید لپ‌تاپ" value="${esc(g?.name)}">
-    <label for="gt">مبلغ هدف (تومان)</label><input id="gt" class="amount" inputmode="numeric" autocomplete="off" value="${g ? fa(group(g.target)) : ''}">
+    <label for="gt">مبلغ هدف (${unitName()})</label><input id="gt" class="amount" inputmode="numeric" autocomplete="off" value="${g ? amtIn(g.target) : ''}">
     <div class="err" id="gerr" role="alert"></div><button class="${g ? 'ghost' : 'primary'}">${g ? 'ذخیره‌ی تغییر' : 'ساخت هدف'}</button>
     ${g ? `<button type="button" class="ghost danger" data-act="gdel" data-id="${g.id}">حذف هدف</button></details>` : ''}</form>`);
-  for (const i of document.querySelectorAll('#gf .amount')) i.oninput = e => { const d = digits(e.target.value).replace(/^0+/, ''); e.target.value = d ? fa(group(d)) : ''; };
+  for (const i of document.querySelectorAll('#gf .amount')) i.oninput = amtTyping;
   $('#gf').onsubmit = async e => {
     e.preventDefault();
     if (document.activeElement?.id === 'ga') return; // Enter در کادر مبلغ هدف را ویرایش نکند
-    const body = { name: $('#gn').value.trim(), target: Number(digits($('#gt').value)) };
+    const body = { name: $('#gn').value.trim(), target: readAmt($('#gt').value) };
+    if (Number.isNaN(body.target)) return $('#gerr').textContent = UNIT_ERR;
     try { await api(g ? '/api/goals/' + g.id : '/api/goals', g ? 'PUT' : 'POST', body); closeSheet(); done(g ? 'ذخیره شد' : 'هدف ساخته شد'); refresh(); }
     catch (x) { x.auth ? showAuth(true) : $('#gerr').textContent = x.msg; }
   };
@@ -968,19 +1034,20 @@ Object.assign(actions, {
     const id = Number(b.dataset.id), app = Number(b.dataset.b);
     openSheet(`<form id="rcf" novalidate><div class="phead"><h1>تطبیق با موجودی بانک</h1><button type="button" class="x" data-act="close">بستن</button></div>
       <p class="hint">موجودی فعلی را از همراه‌بانک یا اپ بانک بخوانید و این‌جا بنویسید. اختلاف، اگر بانک کمتر باشد «کارمزد بانکی» و اگر بیشتر باشد «سایر درآمدها» با تاریخ امروز ثبت می‌شود. کارمزدهایی که پیامک ندارند این‌طوری صاف می‌شوند.</p>
-      <div class="card"><small class="hint">موجودی در برنامه</small><div class="evamt amtx">${money(app)} <span class="unit">تومان</span></div></div>
-      <label for="rcb">موجودی واقعی بانک (تومان)</label><input id="rcb" class="amount" inputmode="numeric" autocomplete="off">
+      <div class="card"><small class="hint">موجودی در برنامه</small><div class="evamt amtx">${money(app)} <span class="unit">${unitName()}</span></div></div>
+      <label for="rcb">موجودی واقعی بانک (${unitName()})</label><input id="rcb" class="amount" inputmode="numeric" autocomplete="off">
       <div id="rcd" class="calc"></div>
       <div class="err" id="rcerr" role="alert"></div><button class="primary">ثبت اختلاف</button></form>`);
-    const read = () => Number(digits($('#rcb').value));
+    const read = () => readAmt($('#rcb').value);
     $('#rcb').oninput = e => {
-      const dg = digits(e.target.value).replace(/^0+(?=\d)/, ''); e.target.value = dg ? fa(group(dg)) : '';
+      const dg = digits(e.target.value).replace(/^0+(?=\d)/, ''); e.target.value = dg ? fa(group(dg)) : ''; /* عدد به واحد نمایش */
       const df = read() - app;
-      $('#rcd').innerHTML = !dg ? '' : !df ? '✓ با بانک یکی است؛ اختلافی نیست.' : `اختلاف: <b class="${df < 0 ? 'neg' : 'pos'}">${df < 0 ? '−' : '+'}${money(Math.abs(df))}</b> تومان ← ${df < 0 ? 'کارمزد بانکی' : 'سایر درآمدها'}`;
+      $('#rcd').innerHTML = !dg ? '' : Number.isNaN(df) ? UNIT_ERR : !df ? '✓ با بانک یکی است؛ اختلافی نیست.' : `اختلاف: <b class="${df < 0 ? 'neg' : 'pos'}">${df < 0 ? '−' : '+'}${money(Math.abs(df))}</b> ${unitName()} ← ${df < 0 ? 'کارمزد بانکی' : 'سایر درآمدها'}`;
     };
     $('#rcf').onsubmit = async e => {
       e.preventDefault();
       if (!digits($('#rcb').value)) return $('#rcerr').textContent = 'موجودی بانک را وارد کنید.';
+      if (Number.isNaN(read())) return $('#rcerr').textContent = UNIT_ERR;
       try { await api(`/api/accounts/${id}/reconcile`, 'POST', { balance: read() }); closeSheet(); done('با بانک یکی شد'); refresh(); }
       catch (x) { x.auth ? showAuth(true) : $('#rcerr').textContent = x.msg; }
     };
@@ -996,7 +1063,7 @@ Object.assign(actions, {
       const r = await api('/api/transactions', 'POST', tx);
       done(t.name + ' ثبت شد');
       await refresh();
-      toastUndo(`${t.name}: ${money(t.amount)} تومان ثبت شد.`, async () => {
+      toastUndo(`${t.name}: ${money(t.amount)} ${unitName()} ثبت شد.`, async () => {
         try { await api('/api/transactions/' + r.id, 'DELETE'); toast('برگردانده شد.'); refresh(); }
         catch (e) { e.auth ? showAuth(true) : toast(e.msg || 'برگردانده نشد.'); }
       });
@@ -1010,7 +1077,8 @@ Object.assign(actions, {
   },
   goal(b) { goalSheet(b.dataset.id ? (S.home.goals ?? []).find(x => x.id === Number(b.dataset.id)) : null); },
   async gadd(b) {
-    const id = Number($('#gf').dataset.id), a = Number(digits($('#ga').value)) * Number(b.dataset.s);
+    const id = Number($('#gf').dataset.id), a = readAmt($('#ga').value) * Number(b.dataset.s);
+    if (Number.isNaN(a)) return $('#gerr').textContent = UNIT_ERR;
     if (!a) return $('#gerr').textContent = 'مبلغ را وارد کنید.';
     try {
       const r = await api(`/api/goals/${id}/add`, 'POST', { amount: a });
@@ -1029,7 +1097,8 @@ const ACCENTS = [['blue', 'آبی', '#3fb7ff'], ['purple', 'بنفش', '#a878ff'
 document.documentElement.dataset.accent = store.get('accent', 'blue');
 const SKINS = [['classic', 'کلاسیک', '#05080f', 'linear-gradient(135deg,#0f2c55,#3fb7ff)'], ['liquid', 'شیشه‌ی مایع', '#0b0b1a', 'linear-gradient(135deg,#7b5cff,#ff5fa2,#22c1ee)'],
   ['neon', 'نئون', '#000000', 'linear-gradient(135deg,#00fff0,#ff00c8)'], ['gold', 'طلایی لوکس', '#070707', 'linear-gradient(135deg,#f8e6ba,#b8913f)'],
-  ['light', 'روشن پاستلی', '#f3f1ff', 'linear-gradient(135deg,#d9d0ff,#ffd6e8,#cdeffd)'], ['aurora', 'رنگین', '#0a0614', 'linear-gradient(135deg,#f72585,#7209b7,#4361ee)']];
+  ['light', 'روشن پاستلی', '#f3f1ff', 'linear-gradient(135deg,#d9d0ff,#ffd6e8,#cdeffd)'], ['aurora', 'رنگین', '#0a0614', 'linear-gradient(135deg,#f72585,#7209b7,#4361ee)'],
+  ['apple', 'اپل روشن', '#f2f2f7', 'linear-gradient(135deg,#f2f2f7 55%,#007aff 55%)'], ['appledark', 'اپل تیره', '#000000', 'linear-gradient(135deg,#1c1c1e 55%,#0a84ff 55%)']];
 function setSkin(k) {
   const s = SKINS.find(x => x[0] === k) ?? SKINS[0];
   document.documentElement.dataset.skin = s[0];
@@ -1062,7 +1131,7 @@ function heatmap(r) {
   for (let i = 0; i < first; i++) cells += '<span></span>';
   for (let d = 1; d <= mDays(y, m); d++) {
     const s = `${y}/${p2(m)}/${p2(d)}`, v = r.days?.[s] ?? 0;
-    cells += `<button type="button" class="hd ${v ? 'has' : ''} ${s === now ? 'now' : ''}" style="--a:${v ? (0.18 + 0.82 * v / max).toFixed(2) : 0}" data-act="heatday" data-d="${s}" aria-label="${fa(d)} ${MONTHS[m - 1]}: ${v ? money(v) + ' تومان' : 'بدون خرج'}">${fa(d)}</button>`;
+    cells += `<button type="button" class="hd ${v ? 'has' : ''} ${s === now ? 'now' : ''}" style="--a:${v ? (0.18 + 0.82 * v / max).toFixed(2) : 0}" data-act="heatday" data-d="${s}" aria-label="${fa(d)} ${MONTHS[m - 1]}: ${v ? money(v) + ' ' + unitName() : 'بدون خرج'}">${fa(d)}</button>`;
   }
   return `<div class="card heat"><div class="calgrid wk">${['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map(w => `<span>${w}</span>`).join('')}</div><div class="calgrid">${cells}</div>
     <div class="hl"><span>کم</span><i style="--a:.2"></i><i style="--a:.5"></i><i style="--a:.8"></i><i style="--a:1"></i><span>زیاد</span></div></div>`;
@@ -1129,20 +1198,20 @@ async function showWrap(ym) {
   const pctText = pct == null ? null : pct < 0 ? `${fa(-pct)}٪ کمتر از ماه قبل` : pct > 0 ? `${fa(pct)}٪ بیشتر از ماه قبل` : 'مثل ماه قبل';
   playStory([
     ['🎬', `جمع‌بندی ${monthName(r.month)}`, 'بیایید ببینیم این ماه چه گذشت…'],
-    ['🧾', `${fa(r.count)} بار خرج کردید`, `در کل <b class="amtx">${money(r.expense)}</b> تومان`],
-    top && ['🏆', `بیشترین خرج: ${catEmoji(top.name, 'expense')} ${esc(top.name)}`, `<b class="amtx">${money(top.amount)}</b> تومان · ${fa(share)}٪ کل خرج`],
-    ['📅', `پرخرج‌ترین روز هفته: ${WDAYS[topW]}‌ها`, `<b class="amtx">${money(wd[topW])}</b> تومان در ${WDAYS[topW]}‌های این ماه`],
-    r.biggest && ['💸', 'بزرگ‌ترین خرج یک‌جا', `${esc(r.biggest.description)}<br><b class="amtx">${money(r.biggest.amount)}</b> تومان · ${fa(r.biggest.date)}`],
+    ['🧾', `${fa(r.count)} بار خرج کردید`, `در کل <b class="amtx">${money(r.expense)}</b> ${unitName()}`],
+    top && ['🏆', `بیشترین خرج: ${catEmoji(top.name, 'expense')} ${esc(top.name)}`, `<b class="amtx">${money(top.amount)}</b> ${unitName()} · ${fa(share)}٪ کل خرج`],
+    ['📅', `پرخرج‌ترین روز هفته: ${WDAYS[topW]}‌ها`, `<b class="amtx">${money(wd[topW])}</b> ${unitName()} در ${WDAYS[topW]}‌های این ماه`],
+    r.biggest && ['💸', 'بزرگ‌ترین خرج یک‌جا', `${esc(r.biggest.description)}<br><b class="amtx">${money(r.biggest.amount)}</b> ${unitName()} · ${fa(r.biggest.date)}`],
     pct != null && (pct < 0 ? ['🎉', pctText + '!', 'آفرین، خرجتان کمتر شده.'] : pct > 0 ? ['📈', pctText, 'ماه بعد را با سقف خرج کنترل کنید.'] : ['⚖️', 'درست مثل ماه قبل', 'خرجتان ثابت مانده.']),
-    [net >= 0 ? '💚' : '🧡', net >= 0 ? 'ماه را با پس‌انداز تمام کردید' : 'خرج از درآمد بیشتر شد', `خالص ماه: <b class="amtx ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '−'}${money(Math.abs(net))}</b> تومان`],
+    [net >= 0 ? '💚' : '🧡', net >= 0 ? 'ماه را با پس‌انداز تمام کردید' : 'خرج از درآمد بیشتر شد', `خالص ماه: <b class="amtx ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '−'}${money(Math.abs(net))}</b> ${unitName()}`],
   ].filter(Boolean), {
     title: `جمع‌بندی ${monthName(r.month)}`, sub: 'حساب من', file: r.month.replace('/', '-'), rows: [
       ['🧾', 'تعداد خرج', `${fa(r.count)} بار`, false],
-      ['💰', 'کل خرج', `${money(r.expense)} تومان`, true],
+      ['💰', 'کل خرج', `${money(r.expense)} ${unitName()}`, true],
       top && ['🏆', 'بیشترین خرج', `${top.name} · ${fa(share)}٪`, false],
       ['📅', 'پرخرج‌ترین روز هفته', `${WDAYS[topW]}‌ها`, false],
       pctText && ['📊', 'نسبت به ماه قبل', pctText, false],
-      ['💚', 'خالص ماه', `${net >= 0 ? '+' : '−'}${money(Math.abs(net))} تومان`, true],
+      ['💚', 'خالص ماه', `${net >= 0 ? '+' : '−'}${money(Math.abs(net))} ${unitName()}`, true],
     ].filter(Boolean),
   });
 }
@@ -1155,20 +1224,20 @@ async function showYear(y) {
   const top = r.top.map((t, i) => `${['🥇', '🥈', '🥉'][i]} ${catEmoji(t.name, 'expense')} ${esc(t.name)}`).join('<br>');
   playStory([
     ['📆', `سال ${fa(r.year)} شما`, 'یک سال حساب‌وکتاب در چند کارت'],
-    ['🧾', `${fa(r.count)} خرج ثبت کردید`, `در کل <b class="amtx">${money(r.expense)}</b> تومان`],
+    ['🧾', `${fa(r.count)} خرج ثبت کردید`, `در کل <b class="amtx">${money(r.expense)}</b> ${unitName()}`],
     r.top.length && ['🏆', 'پرخرج‌ترین دسته‌ها', top],
-    hi && ['🔥', `پرخرج‌ترین ماه: ${MONTHS[Number(hi.month.slice(5)) - 1]}`, `<b class="amtx">${money(hi.expense)}</b> تومان`],
-    lo && lo !== hi && ['🌿', `کم‌خرج‌ترین ماه: ${MONTHS[Number(lo.month.slice(5)) - 1]}`, `<b class="amtx">${money(lo.expense)}</b> تومان`],
-    r.biggest && ['💸', 'بزرگ‌ترین خرج سال', `${esc(r.biggest.description)}<br><b class="amtx">${money(r.biggest.amount)}</b> تومان`],
-    [net >= 0 ? '💚' : '🧡', net >= 0 ? 'سال را با پس‌انداز تمام کردید' : 'خرج سال از درآمد بیشتر شد', `درآمد <b class="amtx">${money(r.income)}</b><br>خالص: <b class="amtx ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '−'}${money(Math.abs(net))}</b> تومان`],
+    hi && ['🔥', `پرخرج‌ترین ماه: ${MONTHS[Number(hi.month.slice(5)) - 1]}`, `<b class="amtx">${money(hi.expense)}</b> ${unitName()}`],
+    lo && lo !== hi && ['🌿', `کم‌خرج‌ترین ماه: ${MONTHS[Number(lo.month.slice(5)) - 1]}`, `<b class="amtx">${money(lo.expense)}</b> ${unitName()}`],
+    r.biggest && ['💸', 'بزرگ‌ترین خرج سال', `${esc(r.biggest.description)}<br><b class="amtx">${money(r.biggest.amount)}</b> ${unitName()}`],
+    [net >= 0 ? '💚' : '🧡', net >= 0 ? 'سال را با پس‌انداز تمام کردید' : 'خرج سال از درآمد بیشتر شد', `درآمد <b class="amtx">${money(r.income)}</b><br>خالص: <b class="amtx ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '−'}${money(Math.abs(net))}</b> ${unitName()}`],
   ].filter(Boolean), {
     title: `سال ${fa(r.year)} من`, sub: 'حساب من', file: String(r.year), rows: [
       ['🧾', 'تعداد خرج', `${fa(r.count)} بار`, false],
-      ['💰', 'کل خرج', `${money(r.expense)} تومان`, true],
+      ['💰', 'کل خرج', `${money(r.expense)} ${unitName()}`, true],
       r.top[0] && ['🏆', 'پرخرج‌ترین دسته', r.top[0].name, false],
       hi && ['🔥', 'پرخرج‌ترین ماه', MONTHS[Number(hi.month.slice(5)) - 1], false],
       lo && ['🌿', 'کم‌خرج‌ترین ماه', MONTHS[Number(lo.month.slice(5)) - 1], false],
-      ['💚', 'خالص سال', `${net >= 0 ? '+' : '−'}${money(Math.abs(net))} تومان`, true],
+      ['💚', 'خالص سال', `${net >= 0 ? '+' : '−'}${money(Math.abs(net))} ${unitName()}`, true],
     ].filter(Boolean),
   });
 }
@@ -1177,7 +1246,7 @@ async function showYear(y) {
 function splitShares() {
   const sel = [...document.querySelectorAll('#splitp .on')].map(b => Number(b.dataset.id));
   if (!sel.length) return null;
-  const total = calcExpr($('#amt').value); if (!(total > 0)) return { shares: [], total: 0 };
+  const total = Core.unit.parse(calcExpr($('#amt').value), UNIT); if (!(total > 0)) return { shares: [], total: 0 };
   const me = $('#splitme')?.checked, n = sel.length + (me ? 1 : 0), each = Math.floor(total / n);
   const shares = sel.map(personId => ({ personId, amount: each }));
   if (!me) shares[shares.length - 1].amount += total - each * sel.length; // باقی‌مانده‌ی تقسیم به آخرین نفر
@@ -1187,7 +1256,7 @@ function updateSplit() {
   const el = $('#splitv'); if (!el) return;
   const sp = splitShares();
   el.innerHTML = !sp ? '' : !sp.total ? 'اول مبلغ را وارد کنید.'
-    : `هر نفر <b>${money(sp.shares[0].amount)}</b> تومان${sp.own ? ` · سهم شما <b>${money(sp.own)}</b>` : ''} · طلب شما: <b>${money(sp.total - sp.own)}</b> تومان`;
+    : `هر نفر <b>${money(sp.shares[0].amount)}</b> ${unitName()}${sp.own ? ` · سهم شما <b>${money(sp.own)}</b>` : ''} · طلب شما: <b>${money(sp.total - sp.own)}</b> ${unitName()}`;
 }
 
 /* ---------- عکس رسید ---------- */
@@ -1216,6 +1285,7 @@ async function savePhoto(id) {
 Object.assign(actions, {
   accent(b) { document.documentElement.dataset.accent = b.dataset.k; store.set('accent', b.dataset.k); render(); },
   skin(b) { setSkin(b.dataset.k); store.set('skin', b.dataset.k); render(); },
+  unit(b) { UNIT = b.dataset.k === 'rial' ? 'rial' : 'toman'; store.set('unit', UNIT); render(); },
   wrap(b) { if (b.classList.contains('wrapb')) store.set('wrapSeen', b.dataset.m); showWrap(b.dataset.m || S.month); if (b.classList.contains('wrapb')) b.remove(); },
   heatday(b) { S.filter = { from: b.dataset.d, to: b.dataset.d }; S.view = 'list'; render(); window.scrollTo(0, 0); },
   splitp(b) { b.classList.toggle('on'); updateSplit(); },
@@ -1236,7 +1306,7 @@ function bankCard(a) {
   return `<button class="bcard ${a.kind}" data-act="stmt" data-id="${a.id}" style="--c1:${c1};--c2:${c2}">
     <span class="bt"><b>${a.kind === 'bank' ? esc(a.bankName || 'بانک') : 'نقد'}</b>${a.kind === 'bank' ? '<i class="chipg" aria-hidden="true"></i>' : '<i class="wal" aria-hidden="true">👛</i>'}</span>
     <span class="bn">${esc(a.name)}${a.business ? ' <small class="bizt">کسب‌وکار</small>' : ''}</span>
-    <span class="bal ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)} <small>تومان</small></span>
+    <span class="bal ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)} <small>${unitName()}</small></span>
     <span class="bno">${num ? '•••• ' + fa(num) : a.kind === 'cash' ? 'کیف پول' : ''}</span></button>`;
 }
 
@@ -1258,7 +1328,7 @@ function spark(series) {
 function subsCard(h) {
   const s = (h.subs ?? []).slice(0, 2); if (!s.length) return '';
   return `<h2>خرج تکراری پیدا شد</h2>${s.map(x => `<div class="card subc"><div class="subt">${catIcon(h.categories.find(c => c.id === x.categoryId)?.name, 'expense')}
-    <div><b>${esc(x.name)}</b><small>${fa(x.months)} ماه اخیر، حدود <span class="amtx">${money(x.amount)}</span> تومان در ماه</small></div></div>
+    <div><b>${esc(x.name)}</b><small>${fa(x.months)} ماه اخیر، حدود <span class="amtx">${money(x.amount)}</span> ${unitName()} در ماه</small></div></div>
     <p class="hint">به «پرداخت‌های ماهانه» اضافه شود تا سررسید بعدی (${fa(x.next)}) در خانه یادآوری شود؟</p>
     <div class="two"><button class="primary" data-act="subadd" data-k="${esc(x.key)}">افزودن</button><button class="ghost" data-act="subno" data-k="${esc(x.key)}">لازم نیست</button></div></div>`).join('')}`;
 }
@@ -1315,7 +1385,7 @@ Object.assign(actions, {
   },
   async subno(b) { try { await api('/api/subs/hide', 'POST', { key: b.dataset.k }); refresh(); } catch (e) { e.auth ? showAuth(true) : toast(e.msg); } },
   async remind(b) {
-    const text = `سلام ${b.dataset.n} عزیز، وقت بخیر 🌷\nطبق حساب من، مبلغ ${money(Number(b.dataset.b))} تومان از شما طلب دارم.\nهر وقت برایتان مقدور بود، ممنون می‌شوم تسویه کنید. 🙏`;
+    const text = `سلام ${b.dataset.n} عزیز، وقت بخیر 🌷\nطبق حساب من، مبلغ ${money(Number(b.dataset.b))} ${unitName()} از شما طلب دارم.\nهر وقت برایتان مقدور بود، ممنون می‌شوم تسویه کنید. 🙏`;
     try {
       if (navigator.share) await navigator.share({ text });
       else { await navigator.clipboard.writeText(text); toast('متن یادآوری کپی شد.'); }
@@ -1326,7 +1396,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v23';
+const VERSION = 'v25';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

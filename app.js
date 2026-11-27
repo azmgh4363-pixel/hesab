@@ -277,6 +277,25 @@ function bloomTrend(series) {
       <span class="bmtip amtx" style="left:${(tl * 100 / W).toFixed(1)}%;top:${(ty * 100 / H).toFixed(1)}%">${money(Math.max(...vals))}<small>${unitName()}</small></span>
       <div class="bmx">${ml}</div></div></div></div>`;
 }
+/* تاریخ امروز با اسم روز، مثل «پنجشنبه ۶ آذر ۱۴۰۵» */
+const todayLong = (d = new Date()) => { const p = {}; for (const x of new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).formatToParts(d)) p[x.type] = x.value; return `${p.weekday} ${p.day} ${p.month} ${p.year}`; };
+/* عکس پروفایل: فقط روی همین دستگاه (localStorage «avatar»)، جدا از اطلاعات رمزدار و بیرون از پشتیبان */
+const avatarBtn = () => { const src = store.get('avatar', null); return `<button type="button" class="bmav${src ? ' img' : ''}" data-act="avatar" aria-label="${src ? 'عکس پروفایل' : 'گذاشتن عکس پروفایل'}">${src ? `<img src="${esc(src)}" alt="">` : SV('M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM3.5 21a8.5 8.5 0 0 1 17 0')}</button>`; };
+/* عکس را مربعی از وسط می‌بُرد و ۲۰۰×۲۰۰ می‌کند (چند کیلوبایت) */
+function avatarShrink(file) {
+  return new Promise((ok, no) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => { try { const n = 200, s = Math.min(im.naturalWidth, im.naturalHeight), c = document.createElement('canvas'); c.width = c.height = n;
+      c.getContext('2d').drawImage(im, (im.naturalWidth - s) / 2, (im.naturalHeight - s) / 2, s, s, 0, 0, n, n); URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', .85)); } catch (e) { no(e); } };
+    im.onerror = () => { URL.revokeObjectURL(url); no(new Error('img')); }; im.src = url;
+  });
+}
+function avatarPick() {
+  let f = $('#avf'); if (!f) { f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.id = 'avf'; f.hidden = true; document.body.append(f);
+    f.onchange = async () => { const file = f.files[0]; f.value = ''; if (!file) return;
+      try { const d = await avatarShrink(file); if (!store.set('avatar', d)) throw 0; closeSheet(); render(); toast('عکس پروفایل گذاشته شد.'); } catch { toast('عکس خوانده نشد یا جا نیست.'); } }; }
+  f.click();
+}
 function viewHomeBloom() {
   const h = S.home, t = homeTotals(h), total = t.cash + t.bank;
   const ser = t.series ?? [], ago = ser.length > 30 ? ser[ser.length - 31].total : ser[0]?.total ?? total, diff = total - ago;
@@ -286,7 +305,7 @@ function viewHomeBloom() {
   const accs = h.accounts.slice(0, 4).map(a => `<button class="lxacc" data-act="stmt" data-id="${a.id}"><i class="ci" style="--tile:${a.kind === 'cash' ? '#38bdf8' : a.business ? '#6366f1' : '#ef4444'}">${a.kind === 'cash' ? CAT_SVG['👛'][1] : CAT_SVG['🏦'][1]}</i><span><small>${esc(a.name)}</small><b class="amtx ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</b></span></button>`).join('');
   const tile = (act, k, label, icon) => `<button class="bmt" data-act="${act}"${k ? ` data-k="${k}"` : ''}><i>${icon}</i>${label}</button>`;
   $('#view').innerHTML = `
-  <div class="bmhead"><div class="bmme"><i class="bmav">${SV('M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM3.5 21a8.5 8.5 0 0 1 17 0')}</i><span><b>سلام 👋</b><small>خوش آمدید به حساب من</small></span></div>
+  <div class="bmhead"><div class="bmme">${avatarBtn()}<span><b>سلام 👋</b><small>${todayLong()}</small></span></div>
     <span class="bmicons"><button class="bmround" data-act="inbox" aria-label="پیامک‌های بانک">${SV('M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15ZM10 20a2 2 0 0 0 4 0')}${pend ? `<em>${fa(pend)}</em>` : ''}</button>
     <button class="bmround" data-act="tab" data-v="more" aria-label="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></span></div>
   <div class="card hero bmhero"><img class="bmart" src="bloom-art.webp" alt="" aria-hidden="true">
@@ -1582,6 +1601,15 @@ Object.assign(actions, {
   spark(b) { store.set('sparkN', Number(b.dataset.n)); render(); },
   bloomn(b) { store.set('bloomN', Number(b.dataset.n)); render(); },
   receipt() { txForm('expense'); $('#phf')?.click(); },
+  avatar() {
+    if (!store.get('avatar', null)) return avatarPick();
+    openSheet(`<div class="phead"><h1>عکس پروفایل</h1><button type="button" class="x" data-act="close">بستن</button></div>
+      <div class="avbig"><img src="${esc(store.get('avatar', ''))}" alt=""></div>
+      <button type="button" class="primary" data-act="avpick">عوض کردن عکس</button><button type="button" class="ghost" data-act="avdel">حذف عکس</button>
+      <p class="hint">عکس فقط روی همین گوشی می‌ماند و در فایل پشتیبان نمی‌رود.</p>`);
+  },
+  avpick() { avatarPick(); },
+  avdel() { store.del('avatar'); closeSheet(); render(); toast('عکس پروفایل حذف شد.'); },
   biz(b) { store.set('noBiz', b.dataset.v === '1'); render(); },
   async subadd(b) {
     const x = (S.home.subs ?? []).find(s => s.key === b.dataset.k); if (!x) return;
@@ -1602,7 +1630,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v32';
+const VERSION = 'v33';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

@@ -425,10 +425,10 @@ ol.hint{padding-inline-start:20px}
 
 /* دکمه‌ی شناور */
 #fab{position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom) + 84px);z-index:6;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
-#tabs[hidden]+#fab{display:none}
+#tabs[hidden]~#fab{display:none}
 .fabb{width:58px;height:58px;border-radius:20px;font-size:32px;font-weight:300;line-height:1;color:#fff;
   background:linear-gradient(180deg,rgb(var(--accl)),var(--brand2));box-shadow:inset 0 1px 0 rgb(255 255 255/.5),0 12px 28px var(--glow);transition:transform .35s var(--spring)}
-#fab.open .fabb{transform:rotate(45deg)}
+#fab.open .fabb svg{transform:rotate(45deg)}
 .fanm{display:flex;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}
 .fanm button{display:flex;align-items:center;gap:8px;padding:9px 14px 9px 16px;border-radius:16px;font-weight:700;font-size:14.5px;color:#fff;
   background:linear-gradient(180deg,rgb(30 46 74/.92),rgb(12 20 36/.95));border:1px solid rgb(var(--accl)/.3);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
@@ -1104,10 +1104,12 @@ ol.hint{padding-inline-start:20px}
 :root[data-skin=bloom] .bmhero .pos{color:#4ade80}
 :root[data-skin=bloom] .bmhero .neg{color:#fca5a5}
 .bmtiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
-.bmt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:96px;border-radius:24px;font-size:13.5px;font-weight:700;color:#14213d;background:rgb(255 255 255/.78);border:1px solid rgb(255 255 255/.95);box-shadow:0 8px 24px rgb(60 70 160/.10),inset 0 1px 0 #fff}
+.bmt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:96px;padding:8px 2px;margin:0;border-radius:24px;font-size:13.5px;font-weight:700;color:var(--ink)}
+:root[data-skin=bloom] .bmt{color:#14213d;background:rgb(255 255 255/.78);border:1px solid rgb(255 255 255/.95);box-shadow:0 8px 24px rgb(60 70 160/.10),inset 0 1px 0 #fff}
 .bmt i{color:#1e40af}
 .bmt svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
-.bmbank{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;padding:14px 16px;text-align:right;border-radius:22px;background:radial-gradient(120% 140% at 0 50%,rgb(59 111 224/.22),transparent 55%),linear-gradient(90deg,rgb(255 255 255/.9),rgb(226 232 255/.9))!important}
+.bmbank{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;padding:14px 16px;text-align:right;border-radius:22px}
+:root[data-skin=bloom] .bmbank{background:radial-gradient(120% 140% at 0 50%,rgb(59 111 224/.22),transparent 55%),linear-gradient(90deg,rgb(255 255 255/.9),rgb(226 232 255/.9))!important}
 .bmbk{color:#1e40af;flex:none}
 .bmbk svg{width:40px;height:40px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .bmbank span{flex:1;min-width:0}
@@ -1180,6 +1182,48 @@ ol.hint{padding-inline-start:20px}
 :root[data-skin=luxe] .fmsub svg{color:#f5be46}
 :root[data-skin=gold] .fmcard{background:#0f0f0f;border-color:rgb(212 175 106/.35)}
 :root[data-skin=neon] .fmcard{background:#030308;border-color:rgb(0 255 240/.4)}
+/* دکمه‌ی «+»: مربع با گوشه‌ی نرم (نه گرد)، برق بالای دکمه، علامت خطی؛ با باز شدن منو فقط علامت می‌چرخد و «×» می‌شود */
+:root[data-skin] .fabb{position:relative;overflow:hidden;width:60px;height:60px;border-radius:21px;display:grid;place-items:center;font-size:0;transition:transform .2s var(--spring)}
+:root[data-skin] .fabb::before{content:"";position:absolute;inset:0 0 50% 0;border-radius:inherit;background:linear-gradient(180deg,rgb(255 255 255/.32),rgb(255 255 255/0));pointer-events:none}
+:root[data-skin] .fabb svg{position:relative;width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;transition:transform .35s var(--spring)}
+:root[data-skin] .fabb:active{transform:scale(.93)}
+:root[data-skin=bloom] .fabb{width:62px;height:62px;border-radius:22px;background:linear-gradient(150deg,#5b86f2,#2f5fd8 45%,#1e3a8a);box-shadow:0 0 0 6px #e9ecfb,0 10px 24px rgb(47 95 216/.45)}
+:root[data-skin=luxe] .fabb{width:62px;height:62px;border-radius:22px;background:linear-gradient(150deg,#ffe7a0,#f5be46 48%,#b9781a);color:#1d1404;box-shadow:0 0 0 5px #050505,0 0 24px rgb(245 190 70/.45)}
+:root[data-skin=luxe] .fabb svg{stroke-width:2.8}
+:root[data-skin=apple] .fabb,:root[data-skin=appledark] .fabb,:root[data-skin=modern] .fabb,:root[data-skin=moderndark] .fabb{background:linear-gradient(150deg,rgb(var(--accl)),rgb(var(--acc)));box-shadow:0 10px 22px rgb(var(--acc)/.35)}
+:root[data-skin=liquid] .fabb{border-radius:21px}
+:root[data-skin=neon] .fabb::before,:root[data-skin=liquid] .fabb::before{opacity:.4}
+/* یک چیدمان خانه برای همه‌ی سبک‌ها: رنگ‌های «شکوفه» این‌جا با متغیرهای خود هر سبک جایگزین می‌شوند (--ink، --acc، --acct، --soft، ...) */
+:root[data-skin]:not([data-skin=bloom]) .bmme b,:root[data-skin]:not([data-skin=bloom]) .bmbank b,:root[data-skin]:not([data-skin=bloom]) .bmt{color:var(--ink)}
+:root[data-skin]:not([data-skin=bloom]) .bmav{background:linear-gradient(160deg,rgb(var(--accl)),rgb(var(--acc2)));box-shadow:0 0 0 3px rgb(var(--accl)/.35),0 6px 16px rgb(0 0 0/.18)}
+:root[data-skin]:not([data-skin=bloom]) .bmround{color:rgb(var(--acct));background:var(--soft);border:1px solid var(--line);box-shadow:none}
+:root[data-skin]:not([data-skin=bloom]) .bmround em{box-shadow:0 0 0 2px var(--bg)}
+:root[data-skin]:not([data-skin=bloom]) .bmt i,:root[data-skin]:not([data-skin=bloom]) .bmbk,:root[data-skin]:not([data-skin=bloom]) .bmic{color:rgb(var(--acct))}
+:root[data-skin]:not([data-skin=bloom]) .bmgo,:root[data-skin]:not([data-skin=bloom]) .bmper button.on{background:linear-gradient(180deg,rgb(var(--accl)),rgb(var(--acc2)));color:#fff}
+:root[data-skin]:not([data-skin=bloom]) .bmper button{color:var(--ink);background:var(--soft);box-shadow:none}
+:root[data-skin]:not([data-skin=bloom]) .bmgl{stroke:var(--line)}
+:root[data-skin]:not([data-skin=bloom]) .bmln{stroke:rgb(var(--accl))}
+:root[data-skin]:not([data-skin=bloom]) .bmdot{background:var(--bg);border-color:rgb(var(--accl))}
+:root[data-skin]:not([data-skin=bloom]) .bmtip{background:var(--ink);color:var(--bg);box-shadow:0 6px 16px rgb(0 0 0/.25)}
+:root[data-skin]:not([data-skin=bloom]) .hero.bmhero{min-height:190px;margin:0;padding:20px 18px 18px;border-radius:26px;text-align:start}
+:root[data-skin]:not([data-skin=bloom]) .bmhero .big{font-size:28px;font-size:min(34px,calc((100vw - 56px) * .6 / (var(--n,11) * .58)));font-weight:800;letter-spacing:0;line-height:1.3;margin-top:10px;white-space:nowrap;text-shadow:none}
+:root[data-skin]:not([data-skin=bloom]) .bmhero .maskbtn{position:static;width:30px;height:30px;background:transparent;color:inherit}
+.bmhero>.bmsvg,.bmhero>.lxart{position:absolute;z-index:0}
+:root[data-skin] .lxacc .ci{background:var(--tile);color:#fff;border:0;box-shadow:none}
+:root[data-skin] .lxacc .ci svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bmsvg{right:8px;bottom:10px;width:42%;max-width:180px;height:auto;color:rgb(var(--accl));pointer-events:none}
+:root[data-skin=luxe] .hero.bmhero{background:linear-gradient(135deg,#221a0c 0%,#0f0c07 55%,#1a1408 100%)!important;border:1.5px solid #d4a24c!important;box-shadow:0 0 0 1px rgb(255 214 120/.08),0 0 26px rgb(240 180 60/.22)!important;color:#fff}
+:root[data-skin=luxe] .bmhero .lxart{left:auto;right:10px;bottom:14px;width:38%;max-width:160px}
+:root[data-skin=luxe] .bmunit{color:#f5be46;opacity:1;font-weight:700}
+:root[data-skin=luxe] .bmdelta{border-top-color:rgb(214 170 80/.25)}
+:root[data-skin] .bmrecent .list{background:transparent;border:0;box-shadow:none;border-radius:0;margin:0 -14px -14px}
+:root[data-skin]:not([data-skin=bloom]):not([data-skin=luxe]) .lxmore{color:rgb(var(--acct));background:var(--soft);border:0;border-radius:14px}
+:root[data-skin]:not([data-skin=bloom]):not([data-skin=luxe]) .lxsec .lxmore,:root[data-skin]:not([data-skin=bloom]):not([data-skin=luxe]) .bmrecent .lxh .lxmore{background:none;padding:0}
+:root[data-skin]:not([data-skin=bloom]):not([data-skin=luxe]) .lxacc{border-bottom-color:var(--line)}
+:root[data-skin]:not([data-skin=bloom]):not([data-skin=luxe]) #tabs button:nth-child(2){margin-inline-end:74px}
+:root[data-skin]:not([data-skin=bloom]):not([data-skin=luxe]) #fab{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 18px);align-items:center}
+:root[data-skin]:not([data-skin=bloom]):not([data-skin=luxe]) #toast{bottom:calc(env(safe-area-inset-bottom) + 100px)}
+:root[data-skin]:not([data-skin=bloom]):not([data-skin=luxe]) #fabm{padding-bottom:calc(env(safe-area-inset-bottom) + 100px)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }

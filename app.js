@@ -162,8 +162,8 @@ function queueBanner() {
 const noBiz = () => !!S.home?.hasBusiness && store.get('noBiz', false);
 const homeTotals = h => noBiz() ? h.personal : h;
 function viewHome() {
-  if (luxeSkin()) return viewHomeLuxe();
-  if (bloomSkin()) return viewHomeBloom();
+  /* همه‌ی سبک‌ها یک چیدمان دارند (چیدمان «شکوفه»)؛ رنگ‌ها از متغیرهای هر سبک. کد چیدمان‌های قبلی پایین‌تر فعلاً بی‌استفاده مانده */
+  return viewHomeBloom();
   const h = S.home, t = homeTotals(h), modern = modernSkin();
   const acts = `<div class="actions">
     <button class="a-out" data-act="new" data-k="expense">${ICON.expense}هزینه</button>
@@ -231,7 +231,7 @@ function viewHomeLuxe() {
   const d = new Date(), wd = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
   const accs = h.accounts.slice(0, 4).map(a => `<button class="lxacc" data-act="stmt" data-id="${a.id}"><i class="ci" style="--tile:${a.kind === 'cash' ? '#b8862b' : '#2f6fe0'}">${a.kind === 'cash' ? CAT_SVG['👛'][1] : CAT_SVG['🏦'][1]}</i><span><small>${esc(a.name)}</small><b class="amtx ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</b></span></button>`).join('');
   $('#view').innerHTML = `
-  <div class="lxhead"><div><b>حساب من</b><small>${wd}</small></div><button class="lxgear" data-act="tab" data-v="more" aria-label="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></div>
+  <div class="lxhead"><div><b>حساب من</b><small>${wd}</small></div><button class="lxgear" data-act="search" aria-label="جستجو در تراکنش‌ها">${SV('M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM20 20l-4.2-4.2')}</button></div>
   <div class="card hero lxhero"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button>${LUXE_ART}
     <div class="lbl">وضعیت مالی شما${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
     <div class="big" data-count="${total}" style="--n:${money(total).length}">${money(total)}</div><div class="lxu">${unitName()} ${delta}</div>
@@ -253,6 +253,8 @@ function viewHomeLuxe() {
 }
 
 /* ---------- سبک «شکوفه»: آبی و یاسی روشن با تصویر کارت موجودی (bloom-art.webp، بریده از طرح کاربر) ---------- */
+/* طرح کارت موجودی در سبک‌های غیر از «شکوفه» و «طلایی شب»: ستون‌های رو به بالا و خط روند، هم‌رنگ سبک (currentColor) */
+const HERO_ART = `<svg class="bmsvg" viewBox="0 0 160 120" aria-hidden="true"><g fill="currentColor"><rect x="14" y="78" width="18" height="34" rx="5" opacity=".22"/><rect x="42" y="62" width="18" height="50" rx="5" opacity=".3"/><rect x="70" y="70" width="18" height="42" rx="5" opacity=".26"/><rect x="98" y="44" width="18" height="68" rx="5" opacity=".38"/><rect x="126" y="24" width="18" height="88" rx="5" opacity=".48"/></g><path d="M12 70 50 50l28 12 36-30 34-20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="m136 10 14 2-4 14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const BLOOM_PAL = ['#1e3a8a', '#ec4899', '#a78bfa', '#38bdf8', '#f59e0b', '#94a3b8'];
 /* عدد کوتاه برای محور نمودار (به واحد نمایش): ۱۵۰M */
 const compactAmt = v => { const x = Core.unit.show(v, UNIT), a = Math.abs(x); return (x < 0 ? '−' : '') + (a >= 1e9 ? fa(+(a / 1e9).toFixed(1)) + 'B' : a >= 1e6 ? fa(Math.round(a / 1e6)) + 'M' : a >= 1e3 ? fa(Math.round(a / 1e3)) + 'K' : fa(a)); };
@@ -303,12 +305,12 @@ function viewHomeBloom() {
   const delta = `<span class="lxd ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '▲' : '▼'} ${pct !== null ? (diff >= 0 ? '+' : '−') + fa(Math.abs(pct)).replace('.', '٫') + '٪' : `<b class="amtx">${money(Math.abs(diff))}</b>`}</span> <small>نسبت به ماه قبل</small>`;
   const banks = h.accounts.filter(a => a.kind === 'bank').length, pend = Number(h.pending) || 0;
   const accs = h.accounts.slice(0, 4).map(a => `<button class="lxacc" data-act="stmt" data-id="${a.id}"><i class="ci" style="--tile:${a.kind === 'cash' ? '#38bdf8' : a.business ? '#6366f1' : '#ef4444'}">${a.kind === 'cash' ? CAT_SVG['👛'][1] : CAT_SVG['🏦'][1]}</i><span><small>${esc(a.name)}</small><b class="amtx ${a.balance < 0 ? 'neg' : ''}">${money(a.balance)}</b></span></button>`).join('');
-  const tile = (act, k, label, icon) => `<button class="bmt" data-act="${act}"${k ? ` data-k="${k}"` : ''}><i>${icon}</i>${label}</button>`;
+  const tile = (act, k, label, icon) => `<button class="card bmt" data-act="${act}"${k ? ` data-k="${k}"` : ''}><i>${icon}</i>${label}</button>`;
   $('#view').innerHTML = `
   <div class="bmhead"><div class="bmme">${avatarBtn()}<span><b>سلام 👋</b><small>${todayLong()}</small></span></div>
     <span class="bmicons"><button class="bmround" data-act="inbox" aria-label="پیامک‌های بانک">${SV('M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15ZM10 20a2 2 0 0 0 4 0')}${pend ? `<em>${fa(pend)}</em>` : ''}</button>
-    <button class="bmround" data-act="tab" data-v="more" aria-label="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></span></div>
-  <div class="card hero bmhero"><img class="bmart" src="bloom-art.webp" alt="" aria-hidden="true">
+    <button class="bmround" data-act="search" aria-label="جستجو در تراکنش‌ها">${SV('M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM20 20l-4.2-4.2')}</button></span></div>
+  <div class="card hero bmhero">${bloomSkin() ? '<img class="bmart" src="bloom-art.webp" alt="" aria-hidden="true">' : luxeSkin() ? LUXE_ART : HERO_ART}
     <div class="bmtext"><div class="lbl"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button>وضعیت مالی شما${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
     <div class="big" data-count="${total}" style="--n:${money(total).length}">${money(total)}</div><div class="bmunit">${unitName()}</div>
     <div class="bmdelta">${delta}</div></div>
@@ -321,7 +323,7 @@ function viewHomeBloom() {
   ${homeTemplates(h)}${homeDue(h)}
   ${bloomTrend(t.series)}
   <div class="lxsplit">
-    <div class="card lxcol"><div class="lxh"><b>تجزیه و تحلیل هزینه‌ها</b></div>${h.cats?.length ? donut(h.cats.slice(0, 3).concat(h.cats.length > 3 ? [{ name: null, amount: h.cats.slice(3).reduce((s, x) => s + x.amount, 0) }] : []).filter(x => x.amount), 'هزینه', BLOOM_PAL) : '<p class="hint">این ماه خرجی نیست.</p>'}
+    <div class="card lxcol"><div class="lxh"><b>تجزیه و تحلیل هزینه‌ها</b></div>${h.cats?.length ? donut(h.cats.slice(0, 3).concat(h.cats.length > 3 ? [{ name: null, amount: h.cats.slice(3).reduce((s, x) => s + x.amount, 0) }] : []).filter(x => x.amount), 'هزینه', bloomSkin() ? BLOOM_PAL : PAL) : '<p class="hint">این ماه خرجی نیست.</p>'}
       <button class="lxmore" data-act="report">مشاهده جزئیات ‹</button></div>
     <div class="card lxcol"><div class="lxh"><b>حساب‌های شما</b></div><div class="lxaccs">${accs}</div><button class="lxmore" data-act="tab" data-v="accounts">مدیریت حساب‌ها</button></div>
   </div>
@@ -722,6 +724,8 @@ function accForm(a) {
 
 const actions = {
   tab(b) { S.view = b.dataset.v; render(); window.scrollTo(0, 0); },
+  /* ذره‌بین سربرگ: صفحه‌ی تراکنش‌ها با کادر جستجوی آماده (focus همان لحظه، تا صفحه‌کلید آیفون هم باز شود) */
+  search() { S.view = 'list'; render(); window.scrollTo(0, 0); $('#q')?.focus(); },
   new(b) { txForm(b.dataset.k); },
   close: closeSheet,
   sync() { for (const q of S.queue) delete q.error; refresh(); },
@@ -1573,7 +1577,7 @@ function celebrate(b) {
 /* ---------- دکمه‌ی شناور «+» ---------- */
 (() => {
   const f = document.createElement('div'); f.id = 'fab';
-  f.innerHTML = '<button type="button" class="fabb" data-act="fab" aria-label="ثبت تازه" aria-expanded="false">+</button>';
+  f.innerHTML = '<button type="button" class="fabb" data-act="fab" aria-label="ثبت تازه" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>';
   const m = document.createElement('div'); m.id = 'fabm'; m.hidden = true;
   $('#tabs').after(m, f);
 })();
@@ -1630,7 +1634,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v33';
+const VERSION = 'v36';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

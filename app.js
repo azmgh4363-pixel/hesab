@@ -234,7 +234,7 @@ function viewHomeLuxe() {
   <div class="lxhead"><div><b>حساب من</b><small>${wd}</small></div><button class="lxgear" data-act="tab" data-v="more" aria-label="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></div>
   <div class="card hero lxhero"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button>${LUXE_ART}
     <div class="lbl">وضعیت مالی شما${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
-    <div class="big" data-count="${total}">${money(total)}</div><div class="lxu">${unitName()} ${delta}</div>
+    <div class="big" data-count="${total}" style="--n:${money(total).length}">${money(total)}</div><div class="lxu">${unitName()} ${delta}</div>
     <div class="row"><span>نقد: ${money(t.cash)}</span><span>بانک: ${money(t.bank)}</span></div>
     ${h.hasBusiness ? `<div class="spk bizk"><span></span><span><button type="button" class="${noBiz() ? '' : 'on'}" data-act="biz" data-v="0">همه</button><button type="button" class="${noBiz() ? 'on' : ''}" data-act="biz" data-v="1">بدون کسب‌وکار</button></span></div>` : ''}</div>
   ${queueBanner()}
@@ -291,7 +291,7 @@ function viewHomeBloom() {
     <button class="bmround" data-act="tab" data-v="more" aria-label="بیشتر"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></span></div>
   <div class="card hero bmhero"><img class="bmart" src="bloom-art.webp" alt="" aria-hidden="true">
     <div class="bmtext"><div class="lbl"><button class="maskbtn" data-act="mask" aria-label="پنهان کردن مبلغ‌ها">${masked() ? ICON.eyeoff : ICON.eye}</button>وضعیت مالی شما${noBiz() ? ' (بدون کسب‌وکار)' : ''}</div>
-    <div class="big" data-count="${total}">${money(total)}</div><div class="bmunit">${unitName()}</div>
+    <div class="big" data-count="${total}" style="--n:${money(total).length}">${money(total)}</div><div class="bmunit">${unitName()}</div>
     <div class="bmdelta">${delta}</div></div>
     ${h.hasBusiness ? `<div class="spk bizk"><span></span><span><button type="button" class="${noBiz() ? '' : 'on'}" data-act="biz" data-v="0">همه</button><button type="button" class="${noBiz() ? 'on' : ''}" data-act="biz" data-v="1">بدون کسب‌وکار</button></span></div>` : ''}</div>
   ${queueBanner()}
@@ -1217,7 +1217,7 @@ Object.assign(actions, {
     const acc = id => esc(S.home.accounts.find(a => a.id === id)?.name ?? '');
     const cat = S.home.categories.find(c => c.id === t.categoryId)?.name;
     const where = t.kind === 'transfer' ? `از ${acc(t.accountId)} به ${acc(t.toAccountId)}` : `${cat ? esc(cat) + ' · ' : ''}${t.kind === 'income' ? 'به' : 'از'} حساب ${acc(t.accountId)}`;
-    const f = $('#fab'); if (f?.classList.contains('open')) actions.fab(f.querySelector('.fabb'));
+    const f = $('#fab'); if (f?.classList.contains('open')) actions.fab();
     openSheet(`<div class="phead"><h1>ثبت «${esc(t.name)}»؟</h1><button type="button" class="x" data-act="close">بستن</button></div>
       <div class="card tplask"><div class="evamt amtx ${t.kind === 'income' ? 'pos' : t.kind === 'expense' ? 'neg' : ''}">${money(t.amount)} <span class="unit">${unitName()}</span></div>
       <small class="hint">${KIND[t.kind]} · ${where} · امروز</small></div>
@@ -1554,19 +1554,30 @@ function celebrate(b) {
 /* ---------- دکمه‌ی شناور «+» ---------- */
 (() => {
   const f = document.createElement('div'); f.id = 'fab';
-  f.innerHTML = '<div class="fanm"></div><button type="button" class="fabb" data-act="fab" aria-label="ثبت تازه" aria-expanded="false">+</button>';
-  $('#tabs').after(f);
+  f.innerHTML = '<button type="button" class="fabb" data-act="fab" aria-label="ثبت تازه" aria-expanded="false">+</button>';
+  const m = document.createElement('div'); m.id = 'fabm'; m.hidden = true;
+  $('#tabs').after(m, f);
 })();
-document.addEventListener('click', e => { if (!e.target.closest?.('.fabb')) { const f = $('#fab'); if (f?.classList.contains('open')) { f.classList.remove('open'); f.querySelector('.fabb').setAttribute('aria-expanded', 'false'); } } }, true);
+/* هر لمسی بیرون از دکمه‌ی «+» منو را می‌بندد (کار دکمه‌ی لمس‌شده بعدش انجام می‌شود) */
+document.addEventListener('click', e => { if (!e.target.closest?.('.fabb')) { const f = $('#fab'); if (f?.classList.contains('open')) { f.classList.remove('open'); $('#fabm').hidden = true; f.querySelector('.fabb').setAttribute('aria-expanded', 'false'); } } }, true);
 
 Object.assign(actions, {
-  fab(b) {
-    const f = $('#fab'), open = !f.classList.contains('open');
+  /* منوی «+»: کارت پایین صفحه با سه کار اصلی، پیامک بانک و عکس رسید، و ثبت‌های آماده */
+  fab() {
+    const f = $('#fab'), m = $('#fabm'), open = !f.classList.contains('open');
     if (open) {
-      const tp = (S.home?.templates ?? []).slice(0, 4).map(t => `<button type="button" data-act="tplgo" data-id="${t.id}"><i>${t.kind === 'transfer' ? '⇄' : catEmoji(S.home.categories.find(c => c.id === t.categoryId)?.name, t.kind)}</i>${esc(t.name)}</button>`).join('');
-      f.querySelector('.fanm').innerHTML = `${tp}<button type="button" data-act="new" data-k="transfer"><i>⇄</i>انتقال</button><button type="button" data-act="new" data-k="income"><i>⬇️</i>درآمد</button><button type="button" class="main" data-act="new" data-k="expense"><i>⬆️</i>هزینه</button>`;
+      const ic = d => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+      const tp = (S.home?.templates ?? []).slice(0, 6).map(t => `<button type="button" class="fmt" data-act="tplgo" data-id="${t.id}"><b>${esc(t.name)}</b><small class="amtx">${money(t.amount)}</small></button>`).join('');
+      m.innerHTML = `<div class="fmcard" role="menu">
+        <div class="fmmain">
+          <button type="button" class="fmb" data-act="new" data-k="expense"><i class="fmi out">${ic('M12 19V5M6 11l6-6 6 6')}</i>هزینه</button>
+          <button type="button" class="fmb" data-act="new" data-k="income"><i class="fmi in">${ic('M12 5v14M6 13l6 6 6-6')}</i>درآمد</button>
+          <button type="button" class="fmb" data-act="new" data-k="transfer"><i class="fmi tr">${ic('M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4')}</i>انتقال</button></div>
+        <div class="fmsub"><button type="button" data-act="inbox">${ic('M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.5V17A2.5 2.5 0 0 1 4 14.5Z')}پیامک بانک</button>
+          <button type="button" data-act="receipt">${ic('M4 8.5A2.5 2.5 0 0 1 6.5 6h1.8l1.4-2h4.6l1.4 2h1.8A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5ZM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z')}عکس رسید</button></div>
+        ${tp ? `<div class="fmsep"><span>ثبت سریع</span></div><div class="fmtpl">${tp}</div>` : ''}</div>`;
     }
-    f.classList.toggle('open', open); b.setAttribute('aria-expanded', String(open));
+    m.hidden = !open; f.classList.toggle('open', open); f.querySelector('.fabb').setAttribute('aria-expanded', String(open));
   },
   spark(b) { store.set('sparkN', Number(b.dataset.n)); render(); },
   bloomn(b) { store.set('bloomN', Number(b.dataset.n)); render(); },
@@ -1591,7 +1602,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v30';
+const VERSION = 'v32';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

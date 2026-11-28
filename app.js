@@ -890,6 +890,37 @@ function openCal(input) {
   box.hidden = false; drawCal();
 }
 function closeCal() { const c = $('#cal'); if (c) { c.hidden = true; c.innerHTML = ''; } S.cal = null; }
+
+/* دکمه‌ی برگشت گوشی (اندروید، از MainActivity): اول پنجره‌ی باز بسته می‌شود، بعد برگشت به خانه؛
+   در خانه یا صفحه‌ی رمز «exit» برمی‌گردد تا برنامه برای خروج بپرسد. */
+window.hesabBack = () => {
+  if (S.cal) { closeCal(); return 'handled'; }
+  if (!$('#sheet').hidden) { closeSheet(); return 'handled'; }
+  if ($('#fab')?.classList.contains('open')) { actions.fab(); return 'handled'; }
+  if (S.home && !$('#tabs').hidden && S.view !== 'home') { S.view = 'home'; render(); window.scrollTo(0, 0); return 'handled'; }
+  return 'exit';
+};
+/* نسخه‌ی وب (Chrome اندروید): کلید برگشت گوشی یک ردیف «نگهبان» در history را برمی‌دارد؛ همان hesabBack اجرا و نگهبان دوباره گذاشته می‌شود.
+   در خانه، پرسش خروج داخل برنامه؛ «خروج» نگهبان را برمی‌دارد و تا ۳ ثانیه برگشتِ بعدی برنامه را می‌بندد (مرورگر بستن مستقیم را اجازه نمی‌دهد). */
+const webBack = { leaving: false, timer: 0 };
+function armBack() { if (!window.HesabAndroid && history.pushState && !history.state?.hesabGuard) history.pushState({ hesabGuard: 1 }, ''); }
+if (!window.HesabAndroid && history.pushState) {
+  armBack();
+  window.addEventListener('popstate', () => {
+    if (webBack.leaving) return;
+    if (hesabBack() === 'handled') return armBack();
+    armBack();
+    openSheet(`<div class="phead"><h1>خروج از برنامه</h1><button type="button" class="x" data-act="close">بستن</button></div>
+      <p class="hint">از «حساب من» خارج می‌شوید؟</p>
+      <button type="button" class="primary" data-act="webexit">خروج</button><button type="button" class="ghost" data-act="close">ماندن</button>`);
+  });
+}
+function webExit() {
+  closeSheet(); webBack.leaving = true; history.back();
+  toast('برای بستن، یک بار دیگر کلید برگشت را بزنید.');
+  clearTimeout(webBack.timer); webBack.timer = setTimeout(() => { webBack.leaving = false; armBack(); }, 3000);
+}
+actions.webexit = webExit;
 function drawCal() {
   const { y, m, input } = S.cal, sel = normDate(input.value), now = today(), first = satIdx(y, m, 1);
   let cells = '';
@@ -1634,7 +1665,7 @@ Object.assign(actions, {
 });
 
 /* نسخه‌ی تازه (فقط وب): در پس‌زمینه گرفته می‌شود و با زدن دکمه جایگزین می‌شود؛ اطلاعات دست نمی‌خورد. */
-const VERSION = 'v37';
+const VERSION = 'v40';
 const Upd = { reg: null, go: false, at: 0 };
 function showUpdate() {
   if ($('#upd')) return;

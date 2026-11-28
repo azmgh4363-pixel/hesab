@@ -112,12 +112,12 @@ const Core = (() => {
       cat('برگشت وجه', 'income', 'refund', 'refund'), cat('سایر واریزها', 'income', 'balance', 'other_in'),
       cat('پرداخت بدهی', 'expense', 'balance', 'debt_out'), cat('پرداخت قرض', 'expense', 'balance', 'loan_out'),
       cat('برداشت شخصی', 'expense', 'balance', 'personal'), cat('سایر برداشت‌ها', 'expense', 'balance', 'other_out')];
-    return { v: 1, seq: id + 1, categories, tx: [], entries: [], events: [], rules: [], audit: [], lastBackup: null, people: [], templates: [], recurring: [], goals: [], photos: {}, subsHidden: [],
+    return { v: 1, seq: id + 1, categories, tx: [], entries: [], events: [], rules: [], audit: [], lastBackup: null, people: [], templates: [], recurring: [], goals: [], photos: {}, subsHidden: [], smsTemplates: [],
       accounts: [{ id: id + 1, name: 'کیف پول', kind: 'cash', bankName: null, accountNumber: null, openingBalance: 0, archived: 0 }] };
   }
   const nextId = () => ++S.seq + 1000;
   /* اطلاعات نسخه‌های قبل بخش‌های تازه را ندارند. */
-  const upgrade = s => { s.people ??= []; s.templates ??= []; s.recurring ??= []; s.goals ??= []; s.photos ??= {}; s.subsHidden ??= []; return s; };
+  const upgrade = s => { s.people ??= []; s.templates ??= []; s.recurring ??= []; s.goals ??= []; s.photos ??= {}; s.subsHidden ??= []; s.smsTemplates ??= []; return s; };
   const audit = (action, entity, id, before, after) => S.audit.push({ at: new Date().toISOString(), action, entity, id, before: before ?? null, after: after ?? null });
   const account = id => S.accounts.find(a => a.id === id);
   const live = id => { const t = S.tx.find(x => x.id === id && !x.deletedAt); if (!t) throw bad('تراکنش پیدا نشد.'); return t; };
@@ -491,16 +491,56 @@ const Core = (() => {
     if (p.bank) { const h = banks.filter(a => a.bankName && normalize(a.bankName).includes(p.bank)); if (h.length === 1) return h[0].id; }
     return banks.length === 1 ? banks[0].id : null;
   }
+  /* ---------- قالب‌های یادگرفته: وقتی کاربر مبلغ یک پیامک را درست می‌کند، شکلِ بی‌عددِ آن پیامک
+     و جای مبلغ (چندمین عدد) و جهت نگه داشته می‌شود؛ پیامک‌های بعدی با همان شکل از روی آن خوانده می‌شوند. ---------- */
+  const NUM_RE = /\d[\d,]*\d|\d/g;
+  const smsNums = text => normalize(text).match(NUM_RE) ?? [];
+  const smsSkel = text => normalize(text).replace(NUM_RE, '#').replace(/\s+/g, ' ');
+  /* عدد پیامک ← تومان (مثل parseSms: بی‌واحد = ریال) */
+  const smsToman = (text, raw) => { const v = num(raw); return v === null || v <= 0 ? null : normalize(text).includes('تومان') ? v : Math.floor((v + 5) / 10); };
+  function learned(text, p, today) {
+    if (sensitive(normalize(text))) return p;
+    const t = S.smsTemplates.find(x => x.skel === smsSkel(text)); if (!t) return p;
+    const amount = smsToman(text, smsNums(text)[t.amt] ?? ''); if (!amount) return p;
+    return { ...(p ?? { date: today, time: null, balance: null, reference: null, tail: null, bank: null, key: '' }), direction: t.dir, amount };
+  }
   function repairPending() {
     for (const e of S.events) {
-      if (e.status !== 'pending' || !e.rawText) continue;
-      const p = parseSms(e.rawText, e.date);
+      if (e.status !== 'pending' || !e.rawText || e.fixed) continue; // اصلاح دستی کاربر دوباره خوانده نمی‌شود
+      const p = learned(e.rawText, parseSms(e.rawText, e.date), e.date);
       if (p) { e.direction = p.direction; e.amount = p.amount; if (e.accountId == null) e.accountId = guessAccount(p); }
     }
   }
+  /* اصلاح دستی پیامک منتظر: مبلغ (با انتخاب یکی از عددهای پیامک یا نوشتن)، جهت و تاریخ؛ قالب یاد گرفته می‌شود و پیامک‌های منتظرِ هم‌شکل هم درست می‌شوند. */
+  function fixEvent(id, x) {
+    const e = S.events.find(v => v.id === id && v.status === 'pending'); if (!e) throw bad('این تراکنش قبلاً تعیین تکلیف شده است.');
+    if (!['deposit', 'withdrawal'].includes(x?.direction)) throw bad('واریز یا برداشت را انتخاب کنید.');
+    if (!validDate(x.date)) throw bad('تاریخ نامعتبر است.');
+    const nums = smsNums(e.rawText);
+    let idx = Number.isInteger(x.numIndex) && x.numIndex >= 0 && x.numIndex < nums.length ? x.numIndex : -1;
+    const amount = idx >= 0 ? smsToman(e.rawText, nums[idx]) : x.amount;
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > MAX) throw bad('مبلغ را درست انتخاب یا وارد کنید.');
+    if (idx < 0) idx = nums.findIndex(n => smsToman(e.rawText, n) === amount); // مبلغ نوشته‌شده اگر در پیامک باشد، جایش یاد گرفته می‌شود
+    const before = { amount: e.amount, direction: e.direction, date: e.date };
+    Object.assign(e, { amount, direction: x.direction, date: x.date, fixed: true });
+    audit('fix', 'bank_event', id, before, { amount, direction: x.direction, date: x.date });
+    let similar = 0;
+    if (idx >= 0) {
+      const skel = smsSkel(e.rawText);
+      S.smsTemplates = S.smsTemplates.filter(t => t.skel !== skel);
+      S.smsTemplates.push({ skel, amt: idx, dir: x.direction });
+      if (S.smsTemplates.length > 300) S.smsTemplates.shift();
+      for (const o of S.events) {
+        if (o === e || o.status !== 'pending' || o.fixed || !o.rawText || smsSkel(o.rawText) !== skel) continue;
+        const v = smsToman(o.rawText, smsNums(o.rawText)[idx] ?? '');
+        if (v) { o.amount = v; o.direction = x.direction; similar++; }
+      }
+    }
+    return { amount, similar, learned: idx >= 0 };
+  }
   function ingest(text, today) {
     if (String(text).length > 2000) throw bad('متن خیلی بلند است.');
-    const p = parseSms(text, today);
+    const p = learned(text, parseSms(text, today), today);
     if (!p) throw bad('این متن به‌عنوان پیامک تراکنش بانکی خوانده نشد.');
     const norm = normalize(text).replace(/\s+/g, ' ');
     const old = S.events.find(e => e.norm === norm);
@@ -823,6 +863,7 @@ const Core = (() => {
     if (p === '/api/bank-events/paste') return commit(() => ingest(body.text ?? '', todayJ()));
     if (p === '/api/bank-events/import') return commit(() => ingestFile(body.text ?? ''));
     if (p.endsWith('/resolve')) return commit(() => resolve(id, body));
+    if (p.endsWith('/fix')) return commit(() => fixEvent(id, body));
     if (p.endsWith('/ignore')) return commit(() => {
       const e = S.events.find(v => v.id === id && v.status === 'pending'); if (!e) throw bad('این تراکنش قبلاً تعیین تکلیف شده است.');
       e.status = 'ignored'; audit('ignore', 'bank_event', id);
@@ -839,6 +880,6 @@ const Core = (() => {
     parse: (n, u) => { const m = unit.mul(u); return Number.isFinite(n) && n % m === 0 ? n / m : NaN; }
   };
 
-  return { unit, cardOk, ibanOk, handle, lock, changePassword, checkPassword, exportBackup, importBackup, storage, parseSms, validDate, addDay, todayJ, home: t => home(t), state: () => S };
+  return { unit, cardOk, ibanOk, handle, lock, changePassword, checkPassword, exportBackup, importBackup, storage, parseSms, smsNums, smsToman, validDate, addDay, todayJ, home: t => home(t), state: () => S };
 })();
 if (typeof module !== 'undefined') module.exports = Core;

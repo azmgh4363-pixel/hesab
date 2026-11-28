@@ -54,6 +54,7 @@ function showCard() {
     <p class="hint">این تراکنش را مشخص کنید.</p>
     <div class="evamt ${dep ? 'pos' : 'neg'}">${dep ? '+' : '−'}${money(e.amount)} <span class="unit">${unitName()}</span></div>
     <div class="hint">${dep ? 'واریز' : 'برداشت'} · ${fa(e.date)}${e.time ? ' · ' + fa(e.time) : ''}</div>
+    <button type="button" class="ghost" data-act="evfixopen">✎ مبلغ، نوع یا تاریخ درست نیست؟</button><div id="evfix" hidden></div>
     <details><summary>متن پیامک</summary><div class="raw">${esc(e.rawText)}</div></details>
     <label for="eacc">حساب بانکی</label><select id="eacc">${accOpts(e.accountId)}</select>
     ${matches ? `<h2>شاید قبلاً ثبت شده باشد</h2>${matches}` : ''}
@@ -141,6 +142,40 @@ Object.assign(actions, {
   inbox() { S.view = 'inbox'; S.card = null; render(); window.scrollTo(0, 0); },
   evopen(b) { S.card = Number(b.dataset.id); showCard(); window.scrollTo(0, 0); },
   evlist() { S.card = null; showCard(); window.scrollTo(0, 0); },
+  /* اصلاح پیامکِ اشتباه‌خوانده: لمس عدد درست از خود پیامک (قالب یاد گرفته می‌شود) یا نوشتن مبلغ، جهت و تاریخ */
+  evfixopen() {
+    const e = curEv(), box = $('#evfix'); if (!e || !box) return;
+    if (!box.hidden) { box.hidden = true; return; }
+    const nums = Core.smsNums(e.rawText); S.fxIdx = null;
+    const chips = nums.map((n, i) => n.replace(/,/g, '').length < 4 ? '' : `<button type="button" class="chip ${Core.smsToman(e.rawText, n) === e.amount ? 'on' : ''}" data-act="fxnum" data-i="${i}">${fa(n)}</button>`).join('');
+    box.innerHTML = `${chips ? `<label>مبلغ درست را از خود پیامک لمس کنید</label><div class="chips" id="fxnums">${chips}</div>
+      <p class="hint">پیامک‌های بعدیِ همین قالب هم از همین‌جا خوانده می‌شوند.</p>` : ''}
+      <label for="fxamt">${chips ? 'یا مبلغ را بنویسید' : 'مبلغ'} (${unitName()})</label><input id="fxamt" inputmode="numeric" autocomplete="off" value="${amtIn(e.amount)}">
+      <label>نوع</label><div class="chips" id="fxdir">${[['deposit', 'واریز'], ['withdrawal', 'برداشت']].map(([k, t]) => `<button type="button" class="chip ${e.direction === k ? 'on' : ''}" data-act="fxdir" data-k="${k}">${t}</button>`).join('')}</div>
+      <label for="fxdate">تاریخ</label>${dateInput('fxdate', fa(e.date))}
+      <div class="err" id="fxerr" role="alert"></div>
+      <button type="button" class="primary" data-act="fxsave">ذخیره‌ی اصلاح</button>`;
+    box.hidden = false;
+    box.onkeydown = ev => { if (ev.key === 'Enter') ev.preventDefault(); }; // Enter این‌جا فرم «تأیید و ثبت» را نفرستد
+    $('#fxamt').oninput = ev => { amtTyping(ev); S.fxIdx = null; $('#fxnums .on')?.classList.remove('on'); };
+  },
+  fxnum(b) {
+    const e = curEv(); S.fxIdx = Number(b.dataset.i);
+    $('#fxnums .on')?.classList.remove('on'); b.classList.add('on');
+    $('#fxamt').value = amtIn(Core.smsToman(e.rawText, Core.smsNums(e.rawText)[S.fxIdx]) ?? 0);
+  },
+  fxdir(b) { $('#fxdir .on')?.classList.remove('on'); b.classList.add('on'); },
+  async fxsave(b) {
+    const e = curEv(), err = $('#fxerr'); if (!e || b.disabled) return;
+    const amount = readAmt($('#fxamt').value);
+    if (S.fxIdx == null && Number.isNaN(amount)) return err.textContent = UNIT_ERR;
+    b.disabled = true;
+    try {
+      const r = await api(`/api/bank-events/${e.id}/fix`, 'POST', { numIndex: S.fxIdx ?? undefined, amount, direction: $('#fxdir .on')?.dataset.k, date: normDate($('#fxdate').value) });
+      toast(`اصلاح شد${r.similar ? ` · ${fa(r.similar)} پیامک مشابه هم درست شد` : ''}`);
+      await viewInbox(); window.scrollTo(0, 0);
+    } catch (x) { b.disabled = false; x.auth ? showAuth(true) : err.textContent = x.msg; }
+  },
   async evaddcat() {
     const name = prompt('نام دسته‌ی خنثی تازه');
     if (!name?.trim()) return;
